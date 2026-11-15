@@ -10,14 +10,18 @@ let hits: string[] = [];
 let trap: Server;
 test.beforeAll(async () => {
   // a local "attacker" server: if anything reaches it, data left the sandbox
-  trap = createServer((req, res) => { hits.push(`${req.method} ${req.url}`); res.end("ok"); }).listen(5999, "127.0.0.1");
+  trap = createServer((req, res) => {
+    hits.push(`${req.method} ${req.url}`);
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end("<!doctype html><html><head></head><body>network control</body></html>");
+  }).listen(5999, "127.0.0.1");
 });
 test.afterAll(() => { trap?.close(); });
 test.beforeEach(() => { hits = []; });
 
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
 
-test.use({ channel: "chromium", launchOptions: { ignoreDefaultArgs: ["--disable-background-networking"] } });
+test.use({ channel: "chromium", launchOptions: { ignoreDefaultArgs: ["--disable-background-networking"], args: ["--host-resolver-rules=MAP preconnect.test 127.0.0.1", "--no-proxy-server"] } });
 test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async ({ page, browser }) => {
   let udpPackets = 0, connections = 0;
   const udp = createSocket("udp4");
@@ -29,7 +33,7 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     // Prove the observation endpoints work before attributing zero traffic to the app's policy.
     await page.goto("http://127.0.0.1:5999/control");
     await page.evaluate(async () => {
-      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://127.0.0.1:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://preconnect.test:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
       const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
       try { pc.createDataChannel("control"); await pc.setLocalDescription(await pc.createOffer()); await new Promise(resolve => setTimeout(resolve, 2000)); }
       finally { pc.close(); }
@@ -39,17 +43,17 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     await boot(page);
     hits = []; udpPackets = 0; connections = 0;
     const r = await call(page, "render_widget", { title: "non-Fetch network probes", code: probeWidget(`
-      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://127.0.0.1:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://preconnect.test:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
       try {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
         setTimeout(() => pc.close(), 2000);
         pc.createDataChannel("probe"); await pc.setLocalDescription(await pc.createOffer());
       } catch (e) { log("RTC rejected: " + e.message); }
-      setTimeout(() => { try { location.assign("http://127.0.0.1:5999/navigation?probe=1"); } catch {} }, 500);
+      setTimeout(() => { try { location.assign("http://127.0.0.1:5999/navigation?probe=1"); } catch {} }, 2500);
       log("probes scheduled");
     `) });
     expect(r.status).toBe("ready");
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(4000);
     const evidence = { browser: browser.version(), control, protected: { udpPackets, connections, requests: [...hits] } };
     await test.info().attach("network-evidence", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
     expect(udpPackets, "STUN packets escaped the generated frame").toBe(0);

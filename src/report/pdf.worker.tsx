@@ -14,7 +14,9 @@ const P: Record<Tone, string> = {
 };
 const F = "NotoSansJP";
 // Japanese line breaks must not acquire English syllable hyphens.
-Font.registerHyphenationCallback(word => [word]);
+Font.registerHyphenationCallback(word => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(word)
+  ? Array.from(word).flatMap(char => [char, ""])
+  : [word]);
 const s = StyleSheet.create({
   page: { paddingTop: 44, paddingBottom: 52, paddingHorizontal: 46, fontFamily: F, fontSize: 9.5, color: P.ink, lineHeight: 1.6 },
   eb: { fontSize: 8, color: P.muted, marginBottom: 6 },
