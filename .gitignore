@@ -4,6 +4,8 @@ test-results/
 playwright-report/
 test-results-production/
 playwright-report-production/
+test-results-hosted/
+playwright-report-hosted/
 .DS_Store
 
 .env

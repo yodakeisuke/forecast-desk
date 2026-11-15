@@ -31,7 +31,7 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
   const page = await context.newPage();
   let udpPackets = 0, connections = 0;
   const udp = createSocket("udp4");
-  const tcp = createTcpServer(socket => { connections++; socket.end(); });
+  const tcp = createTcpServer(socket => { connections++; socket.destroy(); });
   udp.on("message", () => udpPackets++);
   await new Promise<void>(resolve => udp.bind(5998, "127.0.0.1", resolve));
   await new Promise<void>(resolve => tcp.listen(5997, "127.0.0.1", resolve));
