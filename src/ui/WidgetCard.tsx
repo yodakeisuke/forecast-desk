@@ -41,41 +41,41 @@ function WidgetCard({ w, i }: { w: Widget; i: number }) {
       <Presence id={`w-${w.id}`} />
       <div className="card-h">
         <div className="tt">
-          <div className="card-t">{w.title}<span className="gen" title="AIがこの会話のために生成したウィジェット"><Spark />生成</span></div>
+          <div className="card-t">{w.title}</div>
           {w.subtitle && <div className="card-s">{w.subtitle}</div>}
         </div>
         <div className="acts">
-          <button className={`tbtn mini${w.showCode ? " on" : ""}`} aria-pressed={w.showCode} onClick={() => actions.patchWidget(w.id, { showCode: !w.showCode })}><Ic.code />コード</button>
+          <details className="toolbar-menu widget-menu">
+            <summary aria-label={`${w.title}の詳細`}><Ic.more /></summary>
+            <div className="menu-panel">
+              <span className="menu-meta">{w.agent} · {w.at}</span>
+              <button aria-pressed={w.showCode} onClick={() => actions.patchWidget(w.id, { showCode: !w.showCode })}>{w.showCode ? "分析を表示" : "コードを表示"}</button>
+              <span className="menu-meta">読み取り {w.dataReads} 回 · 隔離実行</span>
+            </div>
+          </details>
         </div>
       </div>
       <div className="card-b gen-body">
         {w.showCode && <pre className="specview" aria-label="生成されたコード">{w.code}</pre>}
         <div className="gen-stage" hidden={w.showCode}>
-          {w.status === "loading" && <div className="skel gen-skel">サンドボックスで実行中…</div>}
+          {w.status === "loading" && <div className="skel gen-skel">分析を準備しています…</div>}
           {w.status !== "destroyed" && <div className={w.status === "loading" ? "gen-hidden" : ""}><WidgetFrame w={w} runtimeKey={w.id} height={w.height} /></div>}
           {(w.status === "error" || w.status === "destroyed") && <div className="gen-error" role="alert"><b>{w.status === "destroyed" ? "停止しました" : "描画できませんでした"}</b><span>{w.error}</span></div>}
         </div>
         {w.pendingChange && <div className="gen-suggest" data-agent-hidden>
-          <span>生成UIからの確認: <b>{w.pendingChange.label}</b></span>
+          <span>前提の変更: <b>{w.pendingChange.label}</b></span>
           <button className="tbtn mini" onClick={e => resolveWidgetChange(w.id, w.pendingChange!.id, true, e.nativeEvent)}>この変更を許可</button>
           <button className="tbtn mini" onClick={e => resolveWidgetChange(w.id, w.pendingChange!.id, false, e.nativeEvent)}>取り消す</button>
         </div>}
         {w.suggestion && (
           <div className="gen-suggest">
-            <Spark /><span>ウィジェットからの提案: <b>{w.suggestion.label}</b></span>
+            <Spark /><span>分析の提案: <b>{w.suggestion.label}</b></span>
             <button className="tbtn mini" onClick={() => { applySuggestion(w); }}>反映する</button>
             <button className="tbtn mini ghost" onClick={() => actions.patchWidget(w.id, { suggestion: null })}>閉じる</button>
           </div>
         )}
       </div>
-      <footer className="gen-foot">
-        <span className="who"><Spark size={9} />{w.agent}が生成 · {w.at}</span>
-        <span className="dot" />
-        <span>json-render · fpa@1</span>
-        <span className="dot" />
-        <span className="box" title="別オリジンのサンドボックス（sandbox=allow-scripts、connect-src 'none'）"><Ic.lock />隔離サンドボックス</span>
-        {w.dataReads > 0 && <span className="reads" title="登録済みの問い合わせだけを通した回数">データ {w.dataReads}回</span>}
-      </footer>
+
     </section>
   );
 }
@@ -95,9 +95,8 @@ export function WidgetZone() {
   return (
     <>
       <div className="secthead dimmable" id="genzone">
-        <span className="gen"><Spark />生成</span>
-        <h2>このレビューで作成したウィジェット</h2>
-        <span className="muted">別オリジンのサンドボックスで実行 · {widgets.length}件</span>
+        <h2>追加の分析</h2>
+        <span className="muted">{widgets.length}</span>
         <span className="line" />
       </div>
       <div className="grid gen-grid">{widgets.map((w, i) => <WidgetCard key={w.id} w={w} i={i} />)}</div>

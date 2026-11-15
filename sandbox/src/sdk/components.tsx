@@ -3,7 +3,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { defineRegistry, useBoundProp } from "@json-render/react";
 import { Slider, SliderControl, SliderIndicator, SliderThumb, SliderTrack } from "@ui-sdk/react/slider";
 import { fpaCatalog } from "../../../src/shared/fpa-catalog";
-import { accuracyChart, bridgeChart, scenarioChart, trendChart, sg, fmt } from "../../../src/shared/charts";
+import { accuracyChart, bridgeChart, scenarioChart, trendChart, sg, fmt, numberPrecision } from "../../../src/shared/charts";
 import { LAST_ACTUAL, MONTHS } from "../../../src/data/model";
 import { bridge } from "../port";
 import { SvgChart } from "./chart";
@@ -51,7 +51,7 @@ function DriverSlider({ props, bindings }: { props: any; bindings?: Record<strin
     <Box name="DriverSlider" label={props.label} className={`slider${owner === "agent" ? " live" : ""}`}>
       <div className="r1">
         <span className="lab">{props.label}</span>
-        <span className={`own${owner === "agent" ? " ai" : owner === "user" ? " me" : ""}`}>{owner === "agent" ? <><Spark />Agent</> : owner === "user" ? <><UserIc />あなた</> : owner === "widget" ? "生成UI" : "前提"}</span>
+        <span className={`own${owner === "agent" ? " ai" : owner === "user" ? " me" : ""}`}>{owner === "agent" ? <>AI</> : owner === "user" ? <>手動</> : owner === "widget" ? "分析から反映" : "初期値"}</span>
         <span className="val">{fmt(v, Number.isInteger(props.step) ? 0 : 1)}{props.unit}</span>
       </div>
       <Slider value={v} min={props.min} max={props.max} step={props.step} disabled={preview} onValueChange={(x: number | number[]) => setValue(Array.isArray(x) ? x[0] : x)} className="sl">
@@ -78,14 +78,15 @@ function ScenarioCompare({ slipBack, winRate, naBias, ...filters }: { slipBack: 
 
 function VarianceMiniTable({ by, compare, region }: { by: "region" | "segment" | "product"; compare: string; region?: string | null }) {
   const d = useVariance({ by, compare, filters: region ? { region } : {} });
+  const precision = numberPrecision(d ? [d.total.diff, ...d.rows.map(r => r.diff)] : []);
   return (
     <Box name="VarianceMiniTable" label="売上差異">
       {!d ? <Loading h={100} /> : (
         <table className="t">
           <thead><tr><th style={{ textAlign: "left" }}>{({ region: "地域", segment: "セグメント", product: "製品" })[by]}</th><th>{compare}</th><th>10月版</th><th>差異</th><th>差異率</th></tr></thead>
           <tbody>
-            {d.rows.filter((r: any) => !r.level).map((r) => <tr key={r.key}><td style={{ textAlign: "left" }}>{r.label}</td><td>{r.ref.toFixed(1)}</td><td>{r.cur.toFixed(1)}</td><td className={r.diff < 0 ? "bad" : ""}>{sg(r.diff)}</td><td className={r.pct < 0 ? "bad" : ""}>{sg(r.pct)}%</td></tr>)}
-            <tr className="tot"><td style={{ textAlign: "left" }}>合計</td><td>{d.total.ref.toFixed(1)}</td><td>{d.total.cur.toFixed(1)}</td><td>{sg(d.total.diff)}</td><td>{sg(d.total.pct)}%</td></tr>
+            {d.rows.filter((r: any) => !r.level).map((r) => <tr key={r.key}><td style={{ textAlign: "left" }}>{r.label}</td><td>{fmt(r.ref, precision)}</td><td>{fmt(r.cur, precision)}</td><td className={r.diff < 0 ? "bad" : ""}>{sg(r.diff, precision)}</td><td className={r.pct < 0 ? "bad" : ""}>{sg(r.pct)}%</td></tr>)}
+            <tr className="tot"><td style={{ textAlign: "left" }}>合計</td><td>{fmt(d.total.ref, precision)}</td><td>{fmt(d.total.cur, precision)}</td><td>{sg(d.total.diff, precision)}</td><td>{sg(d.total.pct)}%</td></tr>
           </tbody>
         </table>
       )}
@@ -126,15 +127,14 @@ export const { registry } = defineRegistry(fpaCatalog, {
     VarianceMiniTable: ({ props }) => <VarianceMiniTable {...props} />,
     DriverSlider: ({ props, bindings }) => <DriverSlider props={props} bindings={bindings} />,
     ScenarioCompare: ({ props }) => <ScenarioCompare {...(props as any)} />,
-    Insight: ({ props }) => <Box name="Insight" label="結論" className={`callout ${props.tone}`}>{props.tone === "warning" ? <WarnIc /> : <Spark size={12} />}<span>{props.text}</span></Box>,
+    Insight: ({ props }) => <Box name="Insight" label="結論" className={`callout ${props.tone}`}><span>{props.text}</span></Box>,
     AgentUndo: ({ props }) => {
       const preview = useContext(PreviewCtx);
       const any = [useOwner("/scenario/winRate"), useOwner("/scenario/slipBack"), useOwner("/scenario/naBias")].includes("agent");
       if (preview) return null;
       return (
-        <Box name="AgentUndo" label={props.label ?? "Agentの変更だけ戻す"} className="undo">
-          <button className="btn" disabled={!any} onClick={() => bridge.request("state.undo", { source: "agent" }).catch(() => {})}>{props.label ?? "Agentの変更だけ戻す"}</button>
-          <span>誰が変えたかを記録しています</span>
+        <Box name="AgentUndo" label={props.label ?? "AIの変更を取り消す"} className="undo">
+          <button className="btn" disabled={!any} onClick={() => bridge.request("state.undo", { source: "agent" }).catch(() => {})}>{props.label ?? "AIの変更を取り消す"}</button>
         </Box>
       );
     },
@@ -143,7 +143,7 @@ export const { registry } = defineRegistry(fpaCatalog, {
       const C = slots?.[props.name];
       return (
         <div className="slot" data-fpa="Slot" data-slot={props.name} data-fpa-label={props.caption ?? props.name} style={{ minHeight: props.height ?? undefined }}>
-          <span className="slot-tag"><Spark size={8} />自由生成{props.caption ? ` · ${props.caption}` : ""}</span>
+          {props.caption && <span className="slot-tag">{props.caption}</span>}
           {C ? <SlotBoundary name={props.name}><C /></SlotBoundary> : <div className="slot-missing">slots.{props.name} がありません</div>}
         </div>
       );

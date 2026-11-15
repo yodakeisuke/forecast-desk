@@ -1,5 +1,6 @@
 // compose_report: turn what the EDA left behind (notes, widgets, fixed charts, the action history) into a
 // report@1 spec. The LLM passes only the outline and material IDs; this module swaps IDs for the real things.
+import { toolLabel } from "../shared/tool-labels";
 import * as cube from "../data/cube";
 import { versionLabel } from "../data/model";
 import { sg } from "../shared/charts";
@@ -10,8 +11,6 @@ import { reportCatalog, type FigureSourceT } from "./catalog";
 
 type Section = { title: string; body?: string; materials?: string[]; bullets?: string[] };
 type Input = { title: string; audience?: string; summary?: string; sections?: Section[] };
-
-const r1 = (n: number) => Math.round(n * 10) / 10;
 
 export function reportGuide() {
   const s = getState();
@@ -78,7 +77,7 @@ export async function composeReport(input: Input) {
         const w = s.widgets.find((x) => x.id === arg);
         if (!w) throw new Error(`素材 ${id} はありません`);
         if (w.status !== "ready") throw new Error(`素材 ${id} は描画が完了していません`);
-        return F(`${w.title}（生成ウィジェット）`, { kind: "widget", widget: w.id, title: w.title });
+        return F(w.title, { kind: "widget", widget: w.id, title: w.title });
       }
       case "chart":
         if (arg === "bridge") return F(`営業利益ブリッジ（${versionLabel(cmp)} → 10月版、${scope}、億円）`, { kind: "bridge", from: cmp, to: "v10", filters });
@@ -120,9 +119,9 @@ export async function composeReport(input: Input) {
     top.push(add("Section", { no: String(i + 1), title: sec.title, anchor: `rp-s${i + 1}` }, kids));
   }
   const groups = getState().activity;
-  const trail = groups.flatMap((g) => g.items.filter((it) => it.who === "agent" && it.tool && it.tool !== "get_catalog").map((it) => ({ at: it.at, tool: it.tool!, text: it.result || "" })));
+  const trail = groups.flatMap((g) => g.items.filter((it) => it.who === "agent" && !it.running && it.tool && it.tool !== "get_catalog").map((it) => ({ at: it.at, tool: toolLabel(it.tool!), text: it.result || "" })));
   const undoable = history.entries().filter((e: any) => e.source === "agent" && !e.reverted).length;
-  top.push(add("Section", { no: "付録", title: "分析の経緯", anchor: "rp-trail" }, [add("Paragraph", { text: "エージェントがダッシュボードで行った操作（UI SDKの操作履歴）。本文の [番号] はEDA中の注記に対応します。" }), add("Trail", { items: [...trail, { at: clock(), tool: "compose_report", text: "この報告書を構成" }], undoable })]));
+  top.push(add("Section", { no: "付録", title: "分析の経緯", anchor: "rp-trail" }, [add("Paragraph", { text: "分析時の操作と参照した条件。本文の番号は注記に対応します。" }), add("Trail", { items: [...trail, { at: clock(), tool: "レポートを作成", text: "分析結果をまとめました" }], undoable })]));
   const root = add("Document", { title: input.title, eyebrow: `Sorano Cloud · FP&A · 2026年10月版 · ${input.audience ? `${input.audience}向け · ` : ""}社外秘`, author: s.activity.at(-1)?.agent ?? "エージェント", materials: `注記${used.size}件 · 図表${figures}点 · 操作${trail.length}件から構成` }, top);
   const spec: ReportSpec = { root, elements };
   const check = reportCatalog.validate(spec);

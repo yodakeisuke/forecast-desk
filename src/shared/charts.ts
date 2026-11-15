@@ -15,7 +15,17 @@ export type Mark = (
 export type Chart = { w: number; h: number; marks: Mark[]; label: string };
 
 const M = "−";
-export const sg = (v: number, d = 1) => { const r = Number(v.toFixed(d)); return (r > 0 ? "+" : r < 0 ? M : "±") + Math.abs(r).toFixed(d); };
+export function numberPrecision(values: number[], minimum = 1) {
+  const significant = values.filter(v => Math.abs(v) >= 1e-8);
+  let digits = minimum;
+  while (digits < 2 && significant.some(v => Number(v.toFixed(digits)) === 0)) digits++;
+  return digits;
+}
+export const sg = (v: number, d = numberPrecision([v])) => {
+  const r = Number(v.toFixed(d));
+  if (r === 0 && Math.abs(v) >= 1e-8) return (v > 0 ? "+" : M) + "<" + (10 ** -d).toFixed(d);
+  return (r > 0 ? "+" : r < 0 ? M : "±") + Math.abs(r).toFixed(d);
+};
 export const fmt = (v: number, d = 1) => { const r = Number(v.toFixed(d)); return (r < 0 ? M : "") + Math.abs(r).toFixed(d); };
 
 const roundTop = (x: number, top: number, bot: number, bw: number, r = 4) => {
@@ -41,9 +51,7 @@ export function bridgeChart(o: { fromLabel: string; toLabel: string; from: numbe
   for (const s of o.steps) { bars.push({ l: s.label, a: run, b: run + s.value, k: s.value < 0 ? "n" : "p", v: s.value }); run += s.value; }
   bars.push({ l: o.toLabel, a: 0, b: o.to, k: "t", v: o.to });
   // Keep nonzero filtered differences visible instead of rounding them to ±0.0.
-  const significant = bars.map(b => Math.abs(b.v)).filter(v => v >= 1e-8);
-  let precision = 1;
-  while (precision < 8 && significant.some(v => Number(v.toFixed(precision)) === 0)) precision++;
+  const precision = numberPrecision(bars.map(b => b.v));
   const values = bars.flatMap((b) => [b.a, b.b]);
   const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
   const pad = Math.max(hi - lo, 1) * 0.12;
@@ -151,10 +159,11 @@ export function scenarioChart(o: { cases: { name: string; value: number; note: s
   const step = hi - lo > 8 ? 2 : 1;
   for (let g = lo; g <= hi; g += step) marks.push({ t: "line", x1: x(g), x2: x(g), y1: m.t, y2: H - m.b, stroke: "grid" }, { t: "text", x: x(g), y: H - 6, text: String(g), size: 10.5, fill: "muted", anchor: "middle" });
   const base = o.refs[0]?.value ?? lo;
+  const precision = numberPrecision(o.cases.map(c => c.value - base));
   const sorted = [...o.refs].sort((a, b) => a.value - b.value);
   o.refs.forEach((r, i) => {
     const anchor = sorted.indexOf(r) === 0 && o.refs.length > 1 ? "end" : "start";
-    marks.push({ t: "line", x1: x(r.value), x2: x(r.value), y1: m.t - 6, y2: H - m.b, stroke: "ink2", dash: i === 0 ? undefined : "3 3" }, { t: "text", x: x(r.value) + (anchor === "start" ? 4 : -4), y: m.t - 10, text: `${r.label} ${r.value.toFixed(1)}`, size: 10.5, fill: "ink2", anchor });
+    marks.push({ t: "line", x1: x(r.value), x2: x(r.value), y1: m.t - 6, y2: H - m.b, stroke: "ink2", dash: i === 0 ? undefined : "3 3" }, { t: "text", x: x(r.value) + (anchor === "start" ? 4 : -4), y: m.t - 10, text: `${r.label} ${fmt(r.value, precision)}`, size: 10.5, fill: "ink2", anchor });
   });
   const nx = W - noteW;
   marks.push({ t: "line", x1: nx - 6, x2: nx - 6, y1: m.t - 4, y2: H - m.b, stroke: "grid" });
@@ -163,8 +172,8 @@ export function scenarioChart(o: { cases: { name: string; value: number; note: s
     marks.push({ t: "text", x: m.l - 10, y: cy + 4, text: c.name, size: 11.5, weight: c.main ? 600 : 400, fill: "ink", anchor: "end" });
     marks.push({ t: "line", x1: x(base), x2: x(c.value), y1: cy, y2: cy, stroke: "pos", sw: 2, opacity: 0.35 });
     marks.push({ t: "circle", cx: x(c.value), cy, r: c.main ? 6 : 4.5, fill: "pos", stroke: "surface", sw: 2 });
-    marks.push({ t: "text", x: nx + 4, y: cy + 4, text: c.value.toFixed(1), size: 12, weight: c.main ? 600 : 400, fill: "ink" });
-    marks.push({ t: "text", x: nx + 40, y: cy + 4, text: `${sg(c.value - base)}  ${c.note}`, size: 10.5, fill: "muted" });
+    marks.push({ t: "text", x: nx + 4, y: cy + 4, text: fmt(c.value, precision), size: 12, weight: c.main ? 600 : 400, fill: "ink" });
+    marks.push({ t: "text", x: nx + 48 + Math.max(0, precision - 2) * 7, y: cy + 4, text: `${sg(c.value - base, precision)}  ${c.note}`, size: 10.5, fill: "muted" });
   });
   return { w: W, h: H, marks, label: "シナリオ別の通期営業利益" };
 }

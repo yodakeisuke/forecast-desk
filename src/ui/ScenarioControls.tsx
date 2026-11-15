@@ -12,12 +12,12 @@ export function ScenarioControls() {
  const scenario=useApp(s=>s.scenario), filters=useApp(s=>s.filters);
  const d=useCube(`scenario|${JSON.stringify([scenario.values,filters])}`,()=>scenarioPL({slipBack:scenario.values["/scenario/slipBack"],winRate:scenario.values["/scenario/winRate"],naBias:scenario.values["/scenario/naBias"],filters}));
  const [ref,w]=useWidth<HTMLDivElement>();
- return <Card id="c-scenario" cls="c12" title="シナリオ前提" sub={`${Object.values(filters).filter(Boolean).join(" / ") || "全社"} · 実績と確定版は変更せず、前提による営業利益を試算`}>
+ return <Card id="c-scenario" cls="c12" title="シナリオ試算" sub={`${Object.values(filters).filter(Boolean).join(" / ") || "全社"} · 成約率などの前提を変えて営業利益を比較`}>
  <div className="card-b"><div className="scenario-controls">{fields.map(f=><div key={f.path} className="scenario-control">
  <label>{f.label} <b>{scenario.values[f.path]}%</b></label>
  <Slider value={scenario.values[f.path]} min={f.min} max={f.max} step={1} onValueChange={(value,details)=>{actions.setScenario(f.path,Number(value),details.source==="agent"?"agent":"user");broadcastState(f.path);}}>
- <SliderControl className="scenario-slider"><SliderTrack className="scenario-track"><SliderIndicator className="scenario-indicator"/><SliderThumb className="scenario-thumb" aria-label={`${f.label}（ホスト）`}/></SliderTrack></SliderControl></Slider>
+ <SliderControl className="scenario-slider"><SliderTrack className="scenario-track"><SliderIndicator className="scenario-indicator"/><SliderThumb className="scenario-thumb" aria-label={`${f.label}（シナリオ）`}/></SliderTrack></SliderControl></Slider>
  </div>)}</div><div ref={ref}>{d&&w>0&&<SvgChart chart={scenarioChart({cases:d.cases,refs:d.refs,w})}/>}</div>
- <Button className="tbtn" onClick={()=>actions.undoScenario("widget").forEach(broadcastState)}>生成UIの変更だけ戻す</Button>
+ {Object.values(scenario.owner).includes("widget") && <Button className="tbtn ghost" onClick={()=>actions.undoScenario("widget").forEach(broadcastState)}>追加分析による変更を取り消す</Button>}
  </div></Card>;
 }

@@ -221,7 +221,7 @@ test("外に出る操作は人の確認待ち（data-agent-confirm）", async ({
   page.on("download", () => { downloaded = true; });
   const act = page.evaluate(() => (window as any).fpa.agent.act({ steps: [{ ref: "PDFを書き出す", action: "press" }] }));
   await expect(page.locator(".dialog")).toBeVisible();
-  await page.locator(".dialog .tbtn", { hasText: "やめる" }).click();
+  await page.locator(".dialog .tbtn", { hasText: "キャンセル" }).click();
   const r = await act;
   expect(r.ok).toBe(false);
   await page.waitForTimeout(1500);
@@ -235,7 +235,9 @@ test("Agentの変更だけを戻す（人の変更は残る）", async ({ page }
   // the person picks a region through the real Select
   await page.locator(".ctl", { hasText: "地域" }).locator(".sel-trigger").click();
   await page.locator(".sel-item", { hasText: "欧州" }).click();
-  await page.locator("button[aria-label='Agentの操作を戻す']").click();
+  await page.getByLabel("その他のメニュー", { exact: true }).click();
+  await page.locator('button[aria-controls="rail"]').click();
+  await page.locator("button[aria-label='AIの操作を取り消す']").click();
   await expect.poll(() => page.evaluate(() => (window as any).__fpaState().compare)).toBe("budget");
   const s = await page.evaluate(() => (window as any).__fpaState());
   expect(s.filters.region).toBe("欧州");
@@ -244,7 +246,7 @@ test("Agentの変更だけを戻す（人の変更は残る）", async ({ page }
 
 test("生成UIは同値の再送で人の入力の所有権を奪えず、確認は実入力だけを受け付ける", async ({ page }) => {
   await boot(page);
-  await page.getByRole("slider", { name: "成約率（ホスト）", exact: true }).press("End");
+  await page.getByRole("slider", { name: "成約率（シナリオ）", exact: true }).press("End");
   const r = await call(page, "render_widget", { title: "ownership", code: probeWidget(`log("ready");`) });
   expect(r.status).toBe("ready");
   const inject = (value: number) => page.evaluate(([w, v]) => (window as any).__fpaTest.inject(w, { t: "state.set", id: 1, path: "/scenario/winRate", value: v }), [r.widget, value] as const);

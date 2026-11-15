@@ -274,10 +274,14 @@ export async function actInWidget(wid: string, steps: unknown[]) {
   try { return await request(rt, "agent.act", { steps }, 15000); } finally { setTimeout(() => { rt.operating = false; }, 50); }
 }
 export async function exportWidget(wid: string) { return request<{ spec: unknown; slots: Record<string, unknown>; title?: string }>(await waitForRuntime(wid), "export", {}, 8000); }
-export function requestLocate(wid: string, name: string) {
+export async function requestLocate(wid: string, name: string) {
   const rt = runtimes.get(wid);
-  if (!rt) return;
-  request<{ x: number; y: number; w: number; h: number } | null>(rt, "locate", { name }, 3000).then((r) => { if (r) locatedCache.set(`${wid}/${name}`, r); }).catch(() => {});
+  if (!rt) return null;
+  try {
+    const r = await request<{ x: number; y: number; w: number; h: number } | null>(rt, "locate", { name }, 3000);
+    if (r) locatedCache.set(`${wid}/${name}`, r);
+    return r;
+  } catch { return null; }
 }
 export const runtimeKeys = () => [...runtimes.keys()];
 /** Test hook: post a raw message on a widget's port, as if the sandbox had sent it (it cannot do more). */

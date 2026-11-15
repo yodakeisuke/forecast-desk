@@ -30,11 +30,11 @@ test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page })
   expect(s.notes.length).toBe(4);
   await expect(page.locator(".sheet")).toBeVisible();
 
-  // 5 · a generated widget, rendered in the sandbox and marked as generated
+  // 5 · a generated widget, rendered in the sandbox with provenance available in its menu
   await playNext(page);
   const card = page.locator(".gen-card").first();
   await expect(card).toBeVisible();
-  await expect(card.locator(".gen-foot")).toContainText("json-render");
+  await expect(card.locator(".widget-menu .menu-meta").first()).toContainText("ChatGPT");
   await expect(card.locator("iframe.gen-frame")).toHaveAttribute("sandbox", "allow-scripts");
   const frame = card.frameLocator("iframe.gen-frame");
   await expect(frame.locator("[data-slot='band'] svg").first()).toBeVisible();
@@ -45,12 +45,12 @@ test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page })
   expect(v["/scenario/slipBack"]).toBe(50);
   s = await state(page);
   expect(s.scenario.owner["/scenario/slipBack"]).toBe("agent");
-  await page.getByRole("slider", { name: "成約率（ホスト）", exact: true }).press("ArrowUp");
+  await page.getByRole("slider", { name: "成約率（シナリオ）", exact: true }).press("ArrowUp");
   s = await state(page);
   expect(s.scenario.owner["/scenario/winRate"]).toBe("user");
   const scen = page.locator(".gen-card").nth(1).frameLocator("iframe.gen-frame");
-  await expect(scen.getByText("Agent", { exact: true }).first()).toBeVisible();
-  await expect(scen.getByText("あなた", { exact: true }).first()).toBeVisible();
+  await expect(scen.getByText("AI", { exact: true }).first()).toBeVisible();
+  await expect(scen.getByText("手動", { exact: true }).first()).toBeVisible();
 
   // 7 · the report, built from what the EDA left behind
   await playNext(page);
@@ -70,7 +70,9 @@ test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page })
   expect(head).toBe("%PDF-");
 
   // agent-only undo: the agent's driver goes back, the person's stays
-  await page.getByRole("button", { name: "Agentの操作を戻す" }).click();
+  await page.getByLabel("その他のメニュー", { exact: true }).click();
+  await page.locator('button[aria-controls="rail"]').click();
+  await page.getByRole("button", { name: "AIの操作を取り消す" }).click();
   await expect.poll(async () => (await scenario(page))["/scenario/slipBack"]).toBe(0);
   const after = await state(page);
   expect(after.scenario.owner["/scenario/winRate"]).toBe("user");

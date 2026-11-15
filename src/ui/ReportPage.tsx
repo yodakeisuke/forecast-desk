@@ -9,7 +9,7 @@ import { actions, getState, useApp, type ReportSpec } from "../state/store";
 import { useWidth } from "../state/useCube";
 import { SvgChart } from "./SvgChart";
 import { WidgetFrame } from "./WidgetCard";
-import { Spark } from "./icons";
+import { Ic, Spark } from "./icons";
 
 /** **bold** and [n] (a note number that jumps back to the screen it came from). */
 export function richText(text: string): ReactNode[] {
@@ -67,7 +67,7 @@ function WidgetFigure({ id }: { id: string }) {
   return (
     <div className="rp-widget">
       <WidgetFrame w={w} runtimeKey={`${w.id}@report`} preview height={w.height} />
-      <div className="rp-wfoot"><Spark size={9} />{w.agent}が生成したウィジェット · サンドボックスで読み取り専用表示</div>
+      <div className="rp-wfoot">作成時の分析結果</div>
     </div>
   );
 }
@@ -105,7 +105,7 @@ const { registry } = defineRegistry(reportCatalog, {
     Trail: ({ props }) => (
       <>
         <ul className="trail">{props.items.map((x, i) => <li key={i}><span className="tm">{x.at}</span><span className="mono">{x.tool}</span><span>{x.text}</span></li>)}</ul>
-        <p className="muted small">Agentの操作のうち {props.undoable} 件は、ダッシュボードの「Agentの操作を戻す」で取り消せます。</p>
+        <p className="muted small">AIによる変更は操作履歴から取り消せます。</p>
       </>
     ),
   },
@@ -124,10 +124,10 @@ export function ReportPage() {
       <div className="page">
         <div className="phead"><div><h1>レポート</h1><div className="meta">まだ報告書はありません</div></div></div>
         <div className="empty">
-          <Spark size={14} />
-          <p>EDAのあと、エージェントに「この流れで報告書にして」と頼むと、注記・生成ウィジェット・操作履歴から <span className="mono">compose_report</span> がここに組みます。</p>
-          <Button className="tbtn" disabled={busy} onClick={create}>{busy ? "作成中…" : "現在の条件で報告書を作成"}</Button>
-          <Button className="tbtn" onClick={() => actions.setPage("overview")}>ダッシュボードへ戻る</Button>
+
+          <p>現在の分析条件とグラフをまとめ、PDFで保存できます。</p>
+          <Button className="tbtn" disabled={busy} onClick={create}>{busy ? "作成中…" : "レポートを作成"}</Button>
+          <Button className="tbtn" onClick={() => actions.setPage("overview")}>分析に戻る</Button>
         </div>
       </div>
     );
@@ -144,14 +144,19 @@ export function ReportPage() {
     <div className="page rp-page">
       <div className="phead">
         <div>
-          <h1 className="clamp1" title={report.title}>{report.title}</h1>
-          <div className="meta"><span className="gen"><Spark />Agent作成</span><span>ドラフト · {report.at} · 素材{report.materials}点から構成</span></div>
+          <h1>レポート</h1>
+          <div className="meta">ドラフト · {report.at} 作成</div>
         </div>
         <div className="acts">
-          <Button className="tbtn" disabled={busy} onClick={create}>{busy ? "作成中…" : "現在の条件で報告書を作成"}</Button>
-          <Button className="tbtn" onClick={() => actions.setPage("overview")}>ダッシュボードへ戻る</Button>
-          <Button className="tbtn" aria-label="PDFを書き出す" data-agent-confirm="この報告書をPDFとして書き出し、ダウンロードします" disabled={busy} onClick={() => pdf()}>{busy ? "PDFを作成中…" : "PDFを書き出す"}</Button>
-          <Button className="tbtn primary" aria-label="報告書を共有" data-agent-confirm="この報告書のPDFを共有ダイアログに渡します。対応しない環境ではダウンロードします" disabled={busy} onClick={() => pdf(true)}>報告書を共有</Button>
+          <Button className="tbtn ghost" onClick={() => actions.setPage("overview")}>分析に戻る</Button>
+          <Button className="tbtn primary" aria-label="PDFを書き出す" data-agent-confirm="この報告書をPDFとして書き出し、ダウンロードします" disabled={busy} onClick={() => pdf()}>{busy ? "PDFを作成中…" : "PDFを書き出す"}</Button>
+          <details className="toolbar-menu">
+            <summary aria-label="レポートのその他の操作"><Ic.more /></summary>
+            <div className="menu-panel">
+              <Button disabled={busy} onClick={create}>現在の条件で作り直す</Button>
+              <Button aria-label="報告書を共有" data-agent-confirm="この報告書のPDFを共有ダイアログに渡します。対応しない環境ではダウンロードします" disabled={busy} onClick={() => pdf(true)}>PDFを共有</Button>
+            </div>
+          </details>
         </div>
       </div>
       <div className="rp">

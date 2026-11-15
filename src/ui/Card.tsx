@@ -1,6 +1,8 @@
 import { createContext, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { actions } from "../state/store";
+import { toolLabel } from "../shared/tool-labels";
+import { numberPrecision, sg } from "../shared/charts";
 import { downloadBlob } from "../lib/download";
 export const TableMode = createContext(false);
 import { useApp } from "../state/store";
@@ -9,7 +11,7 @@ import { Ic, Spark } from "./icons";
 export function Presence({ id }: { id: string }) {
   const busy = useApp((s) => s.busy);
   if (!busy || busy.target !== id) return <span className="presence" />;
-  return <span className="presence"><Spark />{busy.agent} <span className="mono">{busy.tool}</span></span>;
+  return <span className="presence">{toolLabel(busy.tool)}</span>;
 }
 
 export function Card({ id, cls = "", title, sub, children, extra, born }: { id: string; cls?: string; title: ReactNode; sub?: ReactNode; children: ReactNode; extra?: ReactNode; born?: boolean }) {
@@ -37,12 +39,13 @@ export function Card({ id, cls = "", title, sub, children, extra, born }: { id: 
 
 export function Delta({ cur, base: r, unit, d = 1, up, pt }: { cur: number; base: number; unit: string; d?: number; up: boolean | null; pt?: boolean }) {
   const dv = cur - r;
-  if (Math.abs(dv) < 10 ** -(d + 1)) return <span className="muted">±0</span>;
+  d = numberPrecision([dv], d);
+  if (Math.abs(dv) < 1e-8) return <span className="muted">±0</span>;
   const good = up == null ? null : (dv > 0) === up;
   return (
     <span className={`delta ${good == null ? "" : good ? "good" : "bad"}`}>
       <span style={{ fontSize: 8 }}>{dv > 0 ? "▲" : "▼"}</span>
-      <b>{(dv > 0 ? "+" : "−") + Math.abs(dv).toFixed(d)}{pt ? "pt" : unit === "億円" ? "億" : unit}</b>
+      <b>{sg(dv, d)}{pt ? "pt" : unit === "億円" ? "億" : unit}</b>
     </span>
   );
 }

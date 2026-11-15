@@ -48,7 +48,7 @@ test('concurrent transports retain caller identity and release queue after error
   await Promise.allSettled([a,b]); assert.equal(seen[0],seen[1]); assert.notEqual(seen[1],seen[2]);
 });
 
-import { bridgeChart } from '../../src/shared/charts';
+import { bridgeChart, scenarioChart, sg, numberPrecision } from '../../src/shared/charts';
 test('waterfall supports zero and negative profit without nonfinite geometry', () => {
   for (const [from,to,steps] of [[0,0,[]], [-2,-4,[{label:'cost',value:-2}]], [2,-3,[{label:'drop',value:-5}]], [-2,3,[{label:'gain',value:5}]]] as const) {
     const c = bridgeChart({fromLabel:'before',toLabel:'after',from,to,steps:[...steps],w:480});
@@ -113,4 +113,18 @@ test('waterfall preserves small nonzero differences in labels and tooltips', () 
   assert.ok(!labels.includes('±0.00'));
   const hits = chart.marks.filter(m => m.t === 'hit');
   assert.equal(hits[1].tip.rows[0].value, '+0.03');
+});
+
+test('small filtered variances keep their sign and scenario values stay distinguishable', () => {
+  assert.equal(sg(-0.043), '−0.04');
+  assert.equal(sg(0.004), '+<0.01');
+  assert.equal(sg(-0.000001), '−<0.01');
+  assert.equal(numberPrecision([-0.000001, -0.041016, -0.036862]), 2);
+  assert.equal(sg(0), '±0.0');
+  assert.equal(numberPrecision([0, -1e-12, -0.043]), 2);
+  const c = scenarioChart({ cases:[{name:'基本',value:1.61,note:'成約率31%'}], refs:[{label:'10月版',value:1.59}], w:700 });
+  const labels = c.marks.filter(m => m.t === 'text').map(m => m.text);
+  assert.ok(labels.includes('1.61'));
+  assert.ok(labels.includes('10月版 1.59'));
+  assert.ok(labels.some(s => s.startsWith('+0.02')));
 });

@@ -66,7 +66,7 @@ const initial = (): AppState => ({
   busy: null,
   byAgent: {},
   railTab: "log",
-  rail: true,
+  rail: false,
   tip: null,
   toast: null,
   confirm: null,

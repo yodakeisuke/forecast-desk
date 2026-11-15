@@ -9,7 +9,7 @@ test("production runs eight examples through real tools and exports the report",
     await page.getByRole("button", { name: "次のシーン" }).click();
     await expect(page.locator(".demo .dots button.done")).toHaveCount(scene, { timeout: 90_000 });
     await expect(page.locator(".demo .dots button.cur")).toHaveCount(0);
-    if (scene === 6) await page.getByRole("slider", { name: "成約率（ホスト）", exact: true }).press("ArrowUp");
+    if (scene === 6) await page.getByRole("slider", { name: "成約率（シナリオ）", exact: true }).press("ArrowUp");
   }
   await expect(page.locator(".doc h1")).toHaveText("10月版 フォーキャスト報告");
   const download = page.waitForEvent("download", { timeout: 90_000 });

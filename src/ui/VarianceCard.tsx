@@ -2,12 +2,13 @@
 // methods: a click on a row and an agent's act() step call the same method.
 import { usePart, usePrimitive } from "@ui-sdk/react/primitive";
 import { Tabs, TabsList, TabsTab } from "@ui-sdk/react/tabs";
-import { createContext, useContext, type MouseEvent, type KeyboardEvent } from "react";
+import { createContext, useContext, useLayoutEffect, useRef, type MouseEvent, type KeyboardEvent } from "react";
 import * as cube from "../data/cube";
 import { DIM_LABEL, versionLabel } from "../data/model";
-import { sg } from "../shared/charts";
+import { fmt, numberPrecision, sg } from "../shared/charts";
 import { actions, decodeView, encodeView, useApp, type Tab } from "../state/store";
 import { useCube } from "../state/useCube";
+import { prefersReducedMotion } from "./attention";
 import { Card } from "./Card";
 import { Car, Ic } from "./icons";
 import { DriversTable } from "./Overview";
@@ -37,20 +38,38 @@ function VarianceTablePanel() {
   const version = useApp((s) => s.version), compare = useApp((s) => s.compare), filters = useApp((s) => s.filters), view = useApp((s) => s.view);
   const api = useApi();
   const key = `${version}|${compare}|${JSON.stringify(filters)}|${view.by.join(">")}|${view.open.join(",")}`;
-  const d = useCube(`var|${key}`, () => cube.variance(version, compare, filters, view.by, view.open));
+  const incoming = useCube(`var|${key}`, () => cube.variance(version, compare, filters, view.by, view.open));
+  const last = useRef<typeof incoming>(undefined);
+  if (incoming) last.current = incoming;
+  const d = incoming ?? last.current;
+  const panel = useRef<HTMLDivElement>(null);
+  const priorHeight = useRef<number | null>(null);
+  const animation = useRef<Animation | null>(null);
+  useLayoutEffect(() => {
+    const el = panel.current;
+    if (!el || !incoming) return;
+    const height = el.querySelector("table")?.getBoundingClientRect().height ?? el.scrollHeight;
+    animation.current?.cancel();
+    if (priorHeight.current !== null && Math.abs(height - priorHeight.current) > 1 && !prefersReducedMotion()) {
+      animation.current = el.animate([{ height: `${priorHeight.current}px` }, { height: `${height}px` }], { duration: 320, easing: "cubic-bezier(.2,.8,.2,1)" });
+    }
+    priorHeight.current = height;
+  }, [incoming]);
+  useLayoutEffect(() => () => animation.current?.cancel(), []);
   if (!d) return <div className="skel" style={{ height: 180, margin: 16 }}>読み込み中…</div>;
-  const mx = Math.max(0.1, ...d.rows.map((r) => Math.abs(r.diff)));
-  const bar = (dv: number) => (Math.abs(dv) < 0.05 ? <div className="dv" /> : <div className="dv"><i className={dv < 0 ? "n" : "p"} style={{ width: `${Math.min(50, (Math.abs(dv) / mx) * 50)}%` }} /></div>);
+  const precision = numberPrecision([d.total.diff, ...d.rows.map(r => r.diff)]);
+  const mx = Math.max(1e-8, ...d.rows.map((r) => Math.abs(r.diff)));
+  const bar = (dv: number) => (Math.abs(dv) < 1e-8 ? <div className="dv" /> : <div className="dv"><i className={dv < 0 ? "n" : "p"} style={{ width: `${Math.min(50, (Math.abs(dv) / mx) * 50)}%` }} /></div>);
   const cells = (r: { ref: number; cur: number; diff: number; pct: number }) => (
     <>
-      <td>{r.ref.toFixed(1)}</td><td>{r.cur.toFixed(1)}</td>
-      <td className={r.diff < -0.05 ? "bad" : ""}>{sg(r.diff)}</td>
-      <td className={r.diff < -0.05 ? "bad" : ""}>{sg(r.pct)}%</td>
+      <td>{fmt(r.ref, precision)}</td><td>{fmt(r.cur, precision)}</td>
+      <td className={r.diff < -1e-8 ? "bad" : ""}>{sg(r.diff, precision)}</td>
+      <td className={r.diff < -1e-8 ? "bad" : ""}>{sg(r.pct)}%</td>
       <td style={{ width: 150 }}>{bar(r.diff)}</td>
     </>
   );
   return (
-    <div className="tw">
+    <div className="tw variance-panel" ref={panel} aria-busy={!incoming}>
       <table className="t">
         <thead><tr><th>{view.by.map((b) => DIM_LABEL[b]).join(" / ")}</th><th>{versionLabel(compare)}</th><th>{versionLabel(version)}</th><th>差異</th><th>差異率</th><th aria-label="差異バー" /></tr></thead>
         <tbody>
@@ -135,9 +154,11 @@ export function VarianceCard() {
     <Card id="c-var" cls="c8" title={view.tab === "variance" ? `${t} · ${view.by.map(b => DIM_LABEL[b]).join(" / ")}` : t} sub={view.tab === "variance" ? `${versionLabel(compare)} → ${versionLabel(version)} · ${sub}` : sub}>
       <VarianceRoot>
         <ViewTabs />
-        {view.tab === "variance" && <VarianceTablePanel />}
-        {view.tab === "pipeline" && <PipelinePanel />}
-        {view.tab === "drivers" && <><ContextChips from="売上差異" /><div className="tw" style={{ padding: "6px 0 8px" }}><DriversTable compact /></div></>}
+        <div className="view-panel" key={view.tab}>
+          {view.tab === "variance" && <VarianceTablePanel />}
+          {view.tab === "pipeline" && <PipelinePanel />}
+          {view.tab === "drivers" && <><ContextChips from="売上差異" /><div className="tw" style={{ padding: "6px 0 8px" }}><DriversTable compact /></div></>}
+        </div>
       </VarianceRoot>
     </Card>
   );

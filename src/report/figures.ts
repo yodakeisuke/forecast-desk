@@ -5,7 +5,7 @@
 import { z } from "zod";
 import * as cube from "../data/cube";
 import { LAST_ACTUAL, MONTHS, versionByLabel, versionLabel, type VersionId } from "../data/model";
-import { accuracyChart, bridgeChart, heatChart, quarterChart, scenarioChart, sg, trendChart, type Chart } from "../shared/charts";
+import { accuracyChart, bridgeChart, heatChart, quarterChart, scenarioChart, sg, fmt, numberPrecision, trendChart, type Chart } from "../shared/charts";
 import { fpaCatalog } from "../shared/fpa-catalog";
 import { exportWidget } from "../genui/host";
 import { getState } from "../state/store";
@@ -88,7 +88,8 @@ export async function figureBlocks(src: FigureSourceT, w: number): Promise<Block
     case "scenario": {
       const pl = await cube.scenarioPL({ slipBack: src.slipBack, winRate: src.winRate, naBias: src.naBias, filters: src.filters });
       const op10 = pl.refs[0].value;
-      return [{ t: "table", head: ["ケース", "通期営業利益", "10月版比", "前提"], align: ["l", "r", "r", "l"], tot: 1, rows: pl.cases.map((c) => [c.name, c.value.toFixed(1), sg(c.value - op10), c.note]) }];
+      const precision = numberPrecision(pl.cases.map(c => c.value - op10));
+      return [{ t: "table", head: ["ケース", "通期営業利益", "10月版比", "前提"], align: ["l", "r", "r", "l"], tot: 1, rows: pl.cases.map((c) => [c.name, fmt(c.value, precision), sg(c.value - op10, precision), c.note]) }];
     }
     case "widget": return widgetBlocks(src.widget, w);
   }

@@ -23,7 +23,7 @@ export function DealSheet() {
         <>
           <div className="sheet-h">
             <div className="row">
-              <span className="badge">ドリルスルー</span>
+              <span className="muted">案件明細</span>
               <span className="muted" style={{ fontSize: 12 }}>パイプライン › 交渉・コミット</span>
               <button className="ibtn" style={{ marginLeft: "auto" }} aria-label="明細を閉じる" onClick={() => actions.setView({ ...view, detail: null })}><Ic.close /></button>
             </div>

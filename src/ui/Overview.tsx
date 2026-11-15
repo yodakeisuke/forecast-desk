@@ -57,7 +57,7 @@ function BridgeCard() {
   const d = useCube(`bridge|${key}`, () => cube.bridge(compare, version, filters));
   const [ref, w] = useWidth<HTMLDivElement>();
   return (
-    <Card id="c-bridge" cls="c5" title="営業利益ブリッジ · ウォーターフォール" sub={d ? `${versionLabel(compare)} → ${versionLabel(version)} · ${sg(d.to - d.from)}億円` : " "}>
+    <Card id="c-bridge" cls="c5" title="営業利益ブリッジ" sub={d ? `${versionLabel(compare)} → ${versionLabel(version)} · ${sg(d.to - d.from)}億円` : " "}>
       <div className="card-b"><div ref={ref}>{d && w > 0 && <SvgChart chart={bridgeChart({ fromLabel: versionLabel(compare), toLabel: versionLabel(version), from: d.from, to: d.to, steps: d.steps, w })} />}</div></div>
     </Card>
   );
@@ -126,8 +126,8 @@ export function Overview() {
     <>
       <div className="phead dimmable">
         <div>
-          <h1>FY2026 フォーキャストレビュー</h1>
-          <div className="meta"><span className="badge lock"><Check />10月版 確定</span><span>2026年11月5日 締め · 実績は10月まで · 単位 億円</span></div>
+          <h1>フォーキャスト</h1>
+          <div className="meta"><span className="badge lock"><Check />FY2026 · 10月版</span><span>2026.4 – 2027.3　/　実績は10月まで　/　億円</span></div>
         </div>
       </div>
       <Controls />

@@ -12,6 +12,7 @@ import { listTargets, findTarget } from "../ui/Notes";
 import { agent } from "./bridge";
 import { currentAgent, withCaller } from "./context";
 import { composeReport, reportGuide } from "../report/compose";
+import { drawAttention, prefersReducedMotion } from "../ui/attention";
 
 export type Json = Record<string, unknown>;
 export type ToolDef = {
@@ -31,7 +32,7 @@ function scrollTo(id: string) {
   const el = document.getElementById(id), c = document.getElementById("content");
   if (!el || !c) return;
   const top = el.getBoundingClientRect().top - c.getBoundingClientRect().top + c.scrollTop - 90;
-  c.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  c.scrollTo({ top: Math.max(0, top), behavior: prefersReducedMotion() ? "instant" : "smooth" });
 }
 async function showOverview() { actions.setPage("overview"); await settle(); }
 async function act(steps: { ref: string; action: string; args?: unknown[] }[]) {
@@ -41,7 +42,8 @@ async function act(steps: { ref: string; action: string; args?: unknown[] }[]) {
   return res;
 }
 const vlabel = (s: unknown) => { const v = versionByLabel(String(s ?? "")); if (!v) throw new Error(`版「${s}」はありません。予算 / 4月版〜10月版`); return v; };
-const r1 = (n: number) => Math.round(n * 10) / 10;
+// Keep small filtered differences in tool results; display rounding belongs to the UI.
+const r6 = (n: number) => Number(n.toFixed(6));
 
 const filtersSchema = { type: "object", properties: { region: { enum: ["日本", "北米", "欧州"] }, segment: { enum: ["SMB", "Mid", "Enterprise"] }, product: { enum: ["Core", "Analytics", "Connect"] } }, additionalProperties: false };
 
@@ -54,9 +56,9 @@ async function varianceSummary() {
   const totalDiff = d.total.diff || 1;
   return {
     view: { tab: s.view.tab, by: s.view.by, open: s.view.open, compare: versionLabel(s.compare) },
-    total: { ref: r1(d.total.ref), cur: r1(d.total.cur), diff: r1(d.total.diff) },
-    opened: d.rows.filter((r) => r.level === 0 && s.view.open.includes(r.key)).map((r) => ({ member: r.key, diff: r1(r.diff), pct: r1(r.pct) })),
-    top: top.map((r) => ({ member: r.key, ref: r1(r.ref), cur: r1(r.cur), diff: r1(r.diff), pct: r1(r.pct), shareOfTotalDiff: `${Math.round((r.diff / totalDiff) * 100)}%` })),
+    total: { ref: r6(d.total.ref), cur: r6(d.total.cur), diff: r6(d.total.diff) },
+    opened: d.rows.filter((r) => r.level === 0 && s.view.open.includes(r.key)).map((r) => ({ member: r.key, diff: r6(r.diff), pct: r6(r.pct) })),
+    top: top.map((r) => ({ member: r.key, ref: r6(r.ref), cur: r6(r.cur), diff: r6(r.diff), pct: r6(r.pct), shareOfTotalDiff: `${Math.round((r.diff / totalDiff) * 100)}%` })),
     highlightTargets: top.map((r) => `row:${r.key}`),
   };
 }
@@ -121,9 +123,9 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
       await act(steps);
       const s = getState();
       const k = await cube.kpis(s.version, s.compare, s.filters);
-      const pick = (key: string) => { const x = k.find((y) => y.key === key)!; return { cur: r1(x.cur), cmp: r1(x.cmp), diff: r1(x.cur - x.cmp) }; };
+      const pick = (key: string) => { const x = k.find((y) => y.key === key)!; return { cur: r6(x.cur), cmp: r6(x.cmp), diff: r6(x.cur - x.cmp) }; };
       const b = await cube.bridge(s.compare, s.version, s.filters);
-      return { compare: versionLabel(s.compare), filters: s.filters, kpis: { op: pick("op"), rev: pick("rev"), newarr: pick("newarr") }, bridge: { from: r1(b.from), to: r1(b.to), steps: b.steps.map((x) => ({ group: x.label, diff: r1(x.value) })) }, highlightTargets: ["bridge:売上", "bridge:費用", "bridge:新規ARR", "kpi:op"] };
+      return { compare: versionLabel(s.compare), filters: s.filters, kpis: { op: pick("op"), rev: pick("rev"), newarr: pick("newarr") }, bridge: { from: r6(b.from), to: r6(b.to), steps: b.steps.map((x) => ({ group: x.label, diff: r6(x.value) })) }, highlightTargets: ["bridge:売上", "bridge:費用", "bridge:新規ARR", "kpi:op"] };
     },
   },
   {
@@ -170,7 +172,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
       const out: Json = { view: { tab: s.view.tab, context: s.view.context } };
       if (s.view.tab === "pipeline") {
         const p = await cube.pipeline({ ...s.filters, ...s.view.context });
-        out.pipeline = { stages: p.stages.map((x) => ({ stage: x.stage, v09: r1(x.v09), v10: r1(x.v10), diff: r1(x.v10 - x.v09), deals: `${x.n09}→${x.n10}` })), slipped: { count: p.slipped.count, arr: r1(p.slipped.arr), revenueImpact: r1(p.slipped.revenueImpact) }, lost: { count: p.lost.count, arr: r1(p.lost.arr) } };
+        out.pipeline = { stages: p.stages.map((x) => ({ stage: x.stage, v09: r6(x.v09), v10: r6(x.v10), diff: r6(x.v10 - x.v09), deals: `${x.n09}→${x.n10}` })), slipped: { count: p.slipped.count, arr: r6(p.slipped.arr), revenueImpact: r6(p.slipped.revenueImpact) }, lost: { count: p.lost.count, arr: r6(p.lost.arr) } };
         out.highlightTargets = ["stages:late", "slip:summary", "stage:交渉", "stage:コミット"];
       }
       if (s.view.tab === "drivers") out.drivers = (await cube.drivers(s.version, s.compare, { ...s.filters, ...s.view.context })).map((d) => ({ driver: d.label, cur: d.cur, cmp: d.cmp, unit: d.unit }));
@@ -191,7 +193,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
       const deals = await cube.slippedDeals({ ...s.filters, ...s.view.context });
       return {
         context: s.view.context,
-        totalArr: r1(deals.reduce((a, d) => a + Number(d.arr), 0)),
+        totalArr: r6(deals.reduce((a, d) => a + Number(d.arr), 0)),
         deals: deals.map((d) => ({ company: d.company, owner: d.owner, arr: d.arr, stage: d.stage, prob: d.prob, close: `${d.close_from} → ${d.close_to}`, reason: d.slip_reason, changes: d.history.length })),
         highlightTargets: ["deals:dates", ...deals.slice(0, 3).map((d) => `deal:${d.company}`)],
         note: UNTRUSTED,
@@ -352,6 +354,15 @@ export async function invoke(def: ToolDef, input: unknown, channel: Channel): Pr
       let summary = "";
       try { summary = def.summarize?.(out, input ?? {}) ?? ""; } catch { summary = ""; }
       actions.patchItem(id, { running: false, ms: Math.round(performance.now() - t0), result: summary, failed });
+      if (!failed && !def.annotations?.readOnlyHint) {
+        await settle();
+        const widget = def.name === "render_widget" ? (out as Json)?.widget : null;
+        const attentionTarget = def.name === "drill_through" ? "sheet" : widget ? `w-${widget}` : target;
+        const member = (input as Json)?.member;
+        const row = def.name === "drill_down" && typeof member === "string" ? findTarget(`row:${member}`) as HTMLElement | null : null;
+        if (row) drawAttention(row);
+        else if (attentionTarget) drawAttention(document.getElementById(attentionTarget));
+      }
       return out;
     } catch (e) {
       const msg = (e as Error).message ?? String(e);
