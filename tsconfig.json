@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": false,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": false,
+    "noEmit": true,
+    "types": ["vite/client"],
+    "paths": { "@fpa/genui-sdk": ["./sandbox/src/sdk/index.tsx"], "@shared/*": ["./src/shared/*"] }
+  },
+  "include": ["security.config.d.mts", "src", "sandbox/src", "tests", "vite.config.ts", "vite.sandbox.config.ts"]
+}
