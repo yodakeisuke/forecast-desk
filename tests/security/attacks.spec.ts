@@ -3,7 +3,7 @@
 import { createServer, type Server } from "node:http";
 import { createServer as createTcpServer } from "node:net";
 import { createSocket } from "node:dgram";
-import { expect, test } from "@playwright/test";
+import { chromium, expect, test } from "@playwright/test";
 import { boot, call, probeWidget, scenario, security } from "../helpers";
 
 let hits: string[] = [];
@@ -21,8 +21,15 @@ test.beforeEach(() => { hits = []; });
 
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
 
-test.use({ channel: "chromium", launchOptions: { ignoreDefaultArgs: ["--disable-background-networking"], args: ["--host-resolver-rules=MAP preconnect.test 127.0.0.1", "--no-proxy-server"] } });
-test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async ({ page, browser }) => {
+test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async () => {
+  // A fresh regular profile exercises resource hints that Chromium suppresses in incognito contexts.
+  const context = await chromium.launchPersistentContext("", {
+    channel: "chromium", baseURL: "http://localhost:5173",
+    ignoreDefaultArgs: ["--disable-background-networking"],
+    args: ["--host-resolver-rules=MAP preconnect.test 127.0.0.1", "--no-proxy-server"],
+  });
+  const page = await context.newPage();
+  await context.tracing.start({ screenshots: true, snapshots: true });
   let udpPackets = 0, connections = 0;
   const udp = createSocket("udp4");
   const tcp = createTcpServer(socket => { connections++; socket.end(); });
@@ -54,13 +61,15 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     `) });
     expect(r.status).toBe("ready");
     await page.waitForTimeout(4000);
-    const evidence = { browser: browser.version(), control, protected: { udpPackets, connections, requests: [...hits] } };
+    const evidence = { browser: context.browser()!.version(), control, protected: { udpPackets, connections, requests: [...hits] } };
     await test.info().attach("network-evidence", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
     expect(udpPackets, "STUN packets escaped the generated frame").toBe(0);
     expect(connections, "preconnect opened an outside socket").toBe(0);
     expect(hits, "iframe navigation or other requests left the generated frame").toEqual([]);
     expect(control.connections, "preconnect must work without the policy before its blocking can be verified").toBeGreaterThan(0);
   } finally {
+    await context.tracing.stop({ path: test.info().outputPath("network-trace.zip") });
+    await context.close();
     udp.close();
     await new Promise<void>(resolve => tcp.close(() => resolve()));
   }
