@@ -169,7 +169,6 @@ self.onmessage = async (e: MessageEvent) => {
     blocks = b;
     byNo = Object.fromEntries(Object.entries(spec.elements).filter(([, x]: any) => x.type === "Figure").map(([k, x]: any) => [`${x.props.no}|${x.props.caption}`, k]));
     Font.register({ family: F, fonts: [{ src: `${fontBase}NotoSansJP_400Regular.ttf`, fontWeight: 400 }, { src: `${fontBase}NotoSansJP_600SemiBold.ttf`, fontWeight: 600 }] });
-    Font.registerHyphenationCallback((w) => (/[^\x00-\x7F]/.test(w) ? [...w] : [w]));
     const check = reportCatalog.validate(spec);
     if (!check.success) throw new Error("報告書specがカタログに合いません");
     const blob = await pdf(<JSONUIProvider registry={registry}><Renderer spec={spec} registry={registry} includeStandard={false} /></JSONUIProvider> as any).toBlob();

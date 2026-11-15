@@ -22,14 +22,13 @@ test.beforeEach(() => { hits = []; });
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
 
 test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async () => {
-  // A fresh regular profile exercises resource hints that Chromium suppresses in incognito contexts.
+  // Use a fresh regular profile and require the resource-hint positive control to produce traffic.
   const context = await chromium.launchPersistentContext("", {
     channel: "chromium", baseURL: "http://localhost:5173",
     ignoreDefaultArgs: ["--disable-background-networking"],
     args: ["--host-resolver-rules=MAP preconnect.test 127.0.0.1", "--no-proxy-server"],
   });
   const page = await context.newPage();
-  await context.tracing.start({ screenshots: true, snapshots: true });
   let udpPackets = 0, connections = 0;
   const udp = createSocket("udp4");
   const tcp = createTcpServer(socket => { connections++; socket.end(); });
@@ -68,7 +67,6 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     expect(hits, "iframe navigation or other requests left the generated frame").toEqual([]);
     expect(control.connections, "preconnect must work without the policy before its blocking can be verified").toBeGreaterThan(0);
   } finally {
-    await context.tracing.stop({ path: test.info().outputPath("network-trace.zip") });
     await context.close();
     udp.close();
     await new Promise<void>(resolve => tcp.close(() => resolve()));
