@@ -17,7 +17,6 @@ test.beforeEach(() => { hits = []; });
 
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
 
-test.describe("non-Fetch network restrictions", () => {
 test.use({ channel: "chromium", launchOptions: { ignoreDefaultArgs: ["--disable-background-networking"] } });
 test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async ({ page, browser }) => {
   let udpPackets = 0, connections = 0;
@@ -61,7 +60,6 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     udp.close();
     await new Promise<void>(resolve => tcp.close(() => resolve()));
   }
-});
 });
 
 test("生成コードはネットワークに出られない（fetch・画像・WebSocket・フォーム・beacon）", async ({ page }) => {

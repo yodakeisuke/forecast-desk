@@ -105,3 +105,12 @@ test('sandbox retains CSP while adding non-Fetch network restrictions', () => {
   assert.equal(headers['Connection-Allowlist'],'(response-origin)');
   assert.equal(headers['X-DNS-Prefetch-Control'],'off');
 });
+
+test('waterfall preserves small nonzero differences in labels and tooltips', () => {
+  const chart = bridgeChart({ fromLabel:'before', toLabel:'after', from:1.12, to:1.141, steps:[{label:'gain',value:.032},{label:'cost',value:-.011}], w:480 });
+  const labels = chart.marks.filter(m => m.t === 'text').map(m => m.text);
+  assert.ok(labels.includes('+0.03')); assert.ok(labels.includes('−0.01'));
+  assert.ok(!labels.includes('±0.00'));
+  const hits = chart.marks.filter(m => m.t === 'hit');
+  assert.equal(hits[1].tip.rows[0].value, '+0.03');
+});

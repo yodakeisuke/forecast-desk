@@ -102,7 +102,7 @@ WHERE v.kind = 'forecast' GROUP BY 1 ORDER BY 2 DESC` });
     },
   },
   {
-    t: "報告書を組む", q: "この流れでCFO向けに1枚にして",
+    t: "報告書を組む", q: "この流れでCFO向けの報告書にして",
     async run(s, ctx) {
       await s.call("get_catalog", { name: "report@1" });
       const k = await s.call("query_data", { measure: "営業利益", compare: ["9月版", "10月版"] });

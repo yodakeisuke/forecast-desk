@@ -542,6 +542,6 @@ table.t.rt td:last-child,table.t.rt th:last-child{padding-right:4px}
 .scenario-slider{position:relative;display:flex;align-items:center;height:32px;touch-action:none;cursor:pointer}
 .scenario-track{position:relative;height:4px;background:var(--grid);width:100%;border-radius:2px}
 .scenario-indicator{position:absolute;height:100%;background:var(--s1);border-radius:2px}
-.scenario-thumb{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--s1);transform:translate(-50%,-50%)}
+.scenario-thumb{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--surface);border:2px solid var(--s1)}
 .scenario-thumb:has(:focus-visible){outline:2px solid var(--agent);outline-offset:3px}
 .scenario-thumb[data-dragging]{box-shadow:0 0 0 6px color-mix(in srgb,var(--s1) 18%,transparent)}

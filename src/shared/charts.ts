@@ -40,6 +40,10 @@ export function bridgeChart(o: { fromLabel: string; toLabel: string; from: numbe
   let run = o.from;
   for (const s of o.steps) { bars.push({ l: s.label, a: run, b: run + s.value, k: s.value < 0 ? "n" : "p", v: s.value }); run += s.value; }
   bars.push({ l: o.toLabel, a: 0, b: o.to, k: "t", v: o.to });
+  // Keep nonzero filtered differences visible instead of rounding them to ±0.0.
+  const significant = bars.map(b => Math.abs(b.v)).filter(v => v >= 1e-8);
+  let precision = 1;
+  while (precision < 8 && significant.some(v => Number(v.toFixed(precision)) === 0)) precision++;
   const values = bars.flatMap((b) => [b.a, b.b]);
   const lo = Math.min(0, ...values), hi = Math.max(0, ...values);
   const pad = Math.max(hi - lo, 1) * 0.12;
@@ -56,16 +60,16 @@ export function bridgeChart(o: { fromLabel: string; toLabel: string; from: numbe
       const x1 = cx(i1) - bw / 2 - 4, x2 = cx(i2) + bw / 2 + 4, yy = 22;
       marks.push({ t: "rect", x: x1 - 6, y: 2, w: x2 - x1 + 12, h: H - 4, fill: "none", id: `bridge:${label.split(" ")[0]}` }, { t: "path", d: `M${x1} ${yy + 5}V${yy}H${x2}V${yy + 5}`, stroke: "axis" }, { t: "text", x: (x1 + x2) / 2, y: yy - 6, text: label, size: 11, fill: "ink2", anchor: "middle" });
     };
-    br(1, 2, `売上 ${sg(rev)}`); br(3, 5, `費用 ${sg(cost)}`);
+    br(1, 2, `売上 ${sg(rev, precision)}`); br(3, 5, `費用 ${sg(cost, precision)}`);
   }
   bars.forEach((b, i) => {
     const t = y(Math.max(b.a, b.b)), bot = y(Math.min(b.a, b.b)), h = Math.max(1.5, bot - t), x = cx(i) - bw / 2;
     if (b.k === "t") marks.push({ t: "path", d: roundTop(x, t, bot, bw), fill: "tot", id: `bridge:${b.l}` });
     else marks.push({ t: "rect", x, y: t, w: bw, h, fill: b.k === "n" ? "neg" : "pos", rx: Math.min(4, h / 2), id: `bridge:${b.l}` });
     if (i < n - 1) marks.push({ t: "line", x1: x + bw, x2: cx(i + 1) - bw / 2, y1: y(b.b), y2: y(b.b), stroke: "axis" });
-    marks.push({ t: "text", x: cx(i), y: b.k === "n" ? bot + 13 : t - 6, text: b.k === "t" ? b.v.toFixed(1) : sg(b.v), size: 11, weight: b.k === "t" ? 600 : 500, fill: "ink", anchor: "middle" });
+    marks.push({ t: "text", x: cx(i), y: b.k === "n" ? bot + 13 : t - 6, text: b.k === "t" ? fmt(b.v, precision) : sg(b.v, precision), size: 11, weight: b.k === "t" ? 600 : 500, fill: "ink", anchor: "middle" });
     (two && L2[b.l] ? L2[b.l] : [b.l]).forEach((p, j) => marks.push({ t: "text", x: cx(i), y: H - m.b + 17 + j * 13, text: p, size: 10.5, fill: "ink2", anchor: "middle" }));
-    marks.push({ t: "hit", x: m.l + band * i, y: m.t - 6, w: band, h: H - m.t - m.b + 6, tip: { title: b.l, rows: [{ value: b.k === "t" ? b.v.toFixed(1) : sg(b.v), label: b.k === "t" ? "億円" : `億円 · 累計 ${b.b.toFixed(1)}` }] } });
+    marks.push({ t: "hit", x: m.l + band * i, y: m.t - 6, w: band, h: H - m.t - m.b + 6, tip: { title: b.l, rows: [{ value: b.k === "t" ? fmt(b.v, precision) : sg(b.v, precision), label: b.k === "t" ? "億円" : `億円 · 累計 ${fmt(b.b, precision)}` }] } });
   });
   return { w: W, h: H, marks, label: `営業利益ブリッジ ${o.fromLabel}から${o.toLabel}` };
 }

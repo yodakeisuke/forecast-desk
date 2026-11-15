@@ -13,6 +13,8 @@ const P: Record<Tone, string> = {
   grid: "#e8e7e1", axis: "#c3c2b7", s1: "#2a78d6", s2: "#eb6834", s3: "#1baf7a", surface: "#ffffff", sunken: "#f6f6f3", agent: "#6250d6", none: "none",
 };
 const F = "NotoSansJP";
+// Japanese line breaks must not acquire English syllable hyphens.
+Font.registerHyphenationCallback(word => [word]);
 const s = StyleSheet.create({
   page: { paddingTop: 44, paddingBottom: 52, paddingHorizontal: 46, fontFamily: F, fontSize: 9.5, color: P.ink, lineHeight: 1.6 },
   eb: { fontSize: 8, color: P.muted, marginBottom: 6 },

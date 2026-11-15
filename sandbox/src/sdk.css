@@ -60,7 +60,7 @@ table.t tr.tot td{font-weight:600;border-bottom:0}
 .sl-control{position:relative;height:22px;display:flex;align-items:center;touch-action:none;cursor:pointer}
 .sl-track{position:relative;height:4px;width:100%;border-radius:2px;background:var(--grid)}
 .sl-ind{position:absolute;height:100%;border-radius:2px;background:var(--pos)}
-.sl-thumb{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--raised);border:2px solid var(--pos);box-shadow:0 1px 3px rgba(0,0,0,.2);transform:translate(-50%,-50%);transition:box-shadow .15s}
+.sl-thumb{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:var(--raised);border:2px solid var(--pos);box-shadow:0 1px 3px rgba(0,0,0,.2);transition:box-shadow .15s}
 .sl-thumb:has(:focus-visible){outline:2px solid var(--agent);outline-offset:2px}
 .sl-thumb[data-dragging]{box-shadow:0 0 0 6px color-mix(in srgb,var(--pos) 18%,transparent)}
 .slider.live .sl-thumb{border-color:var(--agent)} .slider.live .sl-ind{background:var(--agent)}
