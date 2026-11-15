@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests",
   testMatch: "**/*.spec.ts",
+  testIgnore: "**/production/**",
   forbidOnly: !!process.env.CI,
   timeout: 90_000,
   fullyParallel: false,

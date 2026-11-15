@@ -17,6 +17,8 @@ test.beforeEach(() => { hits = []; });
 
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
 
+test.describe("non-Fetch network restrictions", () => {
+test.use({ channel: "chromium", launchOptions: { ignoreDefaultArgs: ["--disable-background-networking"] } });
 test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async ({ page, browser }) => {
   let udpPackets = 0, connections = 0;
   const udp = createSocket("udp4");
@@ -28,18 +30,17 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     // Prove the observation endpoints work before attributing zero traffic to the app's policy.
     await page.goto("http://127.0.0.1:5999/control");
     await page.evaluate(async () => {
-      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "http://127.0.0.1:5997"; document.head.append(hint);
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://127.0.0.1:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
       const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
       try { pc.createDataChannel("control"); await pc.setLocalDescription(await pc.createOffer()); await new Promise(resolve => setTimeout(resolve, 2000)); }
       finally { pc.close(); }
     });
     await expect.poll(() => udpPackets, { timeout: 5000 }).toBeGreaterThan(0);
-    await expect.poll(() => connections, { timeout: 5000 }).toBeGreaterThan(0);
     const control = { udpPackets, connections };
     await boot(page);
     hits = []; udpPackets = 0; connections = 0;
     const r = await call(page, "render_widget", { title: "non-Fetch network probes", code: probeWidget(`
-      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "http://127.0.0.1:5997"; document.head.append(hint);
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "https://127.0.0.1:5997"; hint.crossOrigin = "anonymous"; document.head.append(hint);
       try {
         const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
         setTimeout(() => pc.close(), 2000);
@@ -55,10 +56,12 @@ test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する",
     expect(udpPackets, "STUN packets escaped the generated frame").toBe(0);
     expect(connections, "preconnect opened an outside socket").toBe(0);
     expect(hits, "iframe navigation or other requests left the generated frame").toEqual([]);
+    expect(control.connections, "preconnect must work without the policy before its blocking can be verified").toBeGreaterThan(0);
   } finally {
     udp.close();
     await new Promise<void>(resolve => tcp.close(() => resolve()));
   }
+});
 });
 
 test("生成コードはネットワークに出られない（fetch・画像・WebSocket・フォーム・beacon）", async ({ page }) => {
