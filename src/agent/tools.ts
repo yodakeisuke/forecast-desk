@@ -3,7 +3,8 @@
 import { z } from "zod";
 import * as cube from "../data/cube";
 import { exploreSql, SqlRejected } from "../data/db";
-import { MEASURES, versionByLabel, versionLabel, type Measure, type VersionId } from "../data/model";
+import { DIM_LABEL, MEASURES, versionByLabel, versionLabel, type Measure, type VersionId } from "../data/model";
+import { fmt, sg } from "../shared/charts";
 import { fpaCatalog, SDK_GUIDE } from "../shared/fpa-catalog";
 import { securityLog } from "../lib/security-log";
 import { actions, clock, getState, type Channel } from "../state/store";
@@ -113,7 +114,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
       region: { enum: ["すべて", "日本", "北米", "欧州"] }, segment: { enum: ["すべて", "SMB", "Mid", "Enterprise"] }, product: { enum: ["すべて", "Core", "Analytics", "Connect"] },
     }, additionalProperties: false },
     target: () => "kpis",
-    summarize: (o) => `比較元=${o.compare} · 営業利益 ${o.kpis.op.cur} vs ${o.kpis.op.cmp}`,
+    summarize: (o) => `${o.compare}と比較 · 営業利益 ${fmt(o.kpis.op.cur, 2)}億円（${sg(o.kpis.op.diff, 2)}億円）`,
     async execute(i) {
       await showOverview();
       const steps: { ref: string; action: string; args: unknown[] }[] = [];
@@ -137,7 +138,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
       view: { type: "string", description: "対象の表（いまは variance のみ）" },
     }, additionalProperties: false },
     target: () => "c-var",
-    summarize: (o) => `${o.view.by.join(" × ")} · 上位 ${o.top.map((t: any) => `${t.member} ${t.diff}`).join(", ")}`,
+    summarize: (o) => `${o.view.by.map((d: keyof typeof DIM_LABEL) => DIM_LABEL[d]).join(" / ")} · ${o.top.map((t: any) => `${t.member} ${sg(t.diff, 2)}億円`).join("、")}`,
     async execute(i) {
       await showOverview();
       scrollTo("c-var");
@@ -150,7 +151,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
     description: "差異表を上の階層へ集約し直す。明細 → パイプライン → 展開した行 → 階層、の順に1段ずつ戻る。levels で何段戻るか。",
     inputSchema: { type: "object", properties: { levels: { type: "integer", minimum: 1, maximum: 5 }, view: { type: "string" } }, additionalProperties: false },
     target: () => "c-var",
-    summarize: (o) => `tab=${o.view.tab} · 展開 ${o.view.open.join(",") || "なし"}`,
+    summarize: (o) => `${({variance:"売上差異",pipeline:"パイプライン",drivers:"ドライバー"} as Record<string,string>)[o.view.tab]} · ${o.view.open.length ? o.view.open.join("、") + "の内訳" : "集計を表示"}`,
     async execute(i) {
       await showOverview();
       scrollTo("c-var");
@@ -163,7 +164,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
     description: `いま見ている切り口（地域・セグメント）を保ったまま、別の視点へ移る。to: "pipeline"（今期クローズ予定の案件のステージ別推移、来期へ移った案件）/ "drivers"（成約率・解約率など前提）/ "variance"。keep を省くと差異表でハイライト中の行を引き継ぐ。${PATTERN}`,
     inputSchema: { type: "object", properties: { to: { enum: ["pipeline", "drivers", "variance"] }, keep: { ...filtersSchema, description: "引き継ぐ絞り込み" }, from: { type: "string" } }, required: ["to"], additionalProperties: false },
     target: () => "c-var",
-    summarize: (o) => (o.pipeline ? `来期へ ${o.pipeline.slipped.count}件 · ARR ${o.pipeline.slipped.arr} · 売上影響 ${o.pipeline.slipped.revenueImpact}` : `tab=${o.view.tab}`),
+    summarize: (o) => (o.pipeline ? `来期へ ${o.pipeline.slipped.count}件 · ARR ${fmt(o.pipeline.slipped.arr, 2)}億円 · 売上影響 ${sg(o.pipeline.slipped.revenueImpact, 2)}億円` : o.view.tab === "drivers" ? "ドライバーを表示" : "売上差異を表示"),
     async execute(i) {
       await showOverview();
       scrollTo("c-var");
@@ -185,7 +186,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
     inputSchema: { type: "object", properties: { member: { type: "string" }, view: { type: "string" } }, additionalProperties: false },
     annotations: { untrustedContentHint: true },
     target: () => "c-var",
-    summarize: (o) => `案件 ${o.deals.length}件 · ARR ${o.totalArr}`,
+    summarize: (o) => `案件 ${o.deals.length}件 · ARR ${fmt(o.totalArr, 2)}億円`,
     async execute(i) {
       await showOverview();
       await act([{ ref: "差異表", action: "drillThrough", args: [i.member ?? ""] }]);
@@ -231,7 +232,7 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
     description: "その会話で初めて出た問いに答える1枚を、コードで生成する。コードは別オリジンのサンドボックスで動き、描画結果かエラーが返る。先に get_catalog を読むこと。カタログ部品はjson-renderのspecで並べ、カタログに無い部分はSlotに自由にReactで書く。replace に既存のウィジェットIDを渡すと作り直す。",
     inputSchema: { type: "object", properties: { title: { type: "string", maxLength: 60 }, subtitle: { type: "string", maxLength: 120 }, code: { type: "string" }, replace: { type: "string" } }, required: ["title", "code"], additionalProperties: false },
     target: (i) => (i?.replace ? `w-${i.replace}` : null),
-    summarize: (o) => (o.status === "ready" ? `${o.widget} · 部品${o.components?.length ?? 0}件${o.issues?.length ? ` · 注意${o.issues.length}` : ""}` : `${o.widget ?? ""} エラー: ${String(o.error).slice(0, 80)}`),
+    summarize: (o, i) => (o.status === "ready" ? `${i.title}を追加${o.issues?.length ? ` · 確認事項${o.issues.length}件` : ""}` : `描画できませんでした: ${String(o.error).slice(0, 80)}`),
     async execute(i) {
       const err = precheck(i.code);
       if (err) return { status: "error", error: err };

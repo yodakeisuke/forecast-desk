@@ -3,7 +3,7 @@
 import { toolLabel } from "../shared/tool-labels";
 import * as cube from "../data/cube";
 import { versionLabel } from "../data/model";
-import { sg } from "../shared/charts";
+import { sg, numberPrecision } from "../shared/charts";
 import { actions, clock, getState, type ReportSpec } from "../state/store";
 import { history } from "../agent/bridge";
 import { materializeAll } from "./figures";
@@ -41,13 +41,14 @@ export async function headlineKpis() {
   ]);
   const op = k.find((x) => x.key === "op")!, rev = k.find((x) => x.key === "rev")!;
   const drop = op.cur - op.cmp, revPart = b.steps[0].value + b.steps[1].value;
+  const precision = numberPrecision([drop, revPart, rev.cur - rev.cmp, sc.base - op.cur]);
   const scope = Object.values(f).filter(Boolean).join(" / ") || "全社";
   return { cmpLabel: versionLabel(cmp), op, drop, revPart, revDiff: rev.cur - rev.cmp, scenario: sc,
     items: [
-      { label: `${scope} 営業利益`, value: op.cur.toFixed(1), unit: "億円", delta: `${sg(drop)} vs ${versionLabel(cmp)}`, tone: drop < 0 ? "bad" as const : "good" as const },
-      { label: "うち売上要因", value: sg(revPart), unit: "億円", delta: "営業利益への増減寄与", tone: "muted" as const },
-      { label: `${scope} 売上`, value: rev.cur.toFixed(1), unit: "億円", delta: `${sg(rev.cur - rev.cmp)} vs ${versionLabel(cmp)}`, tone: "muted" as const },
-      { label: `${scope} 基本シナリオ`, value: sc.base.toFixed(1), unit: "億円", delta: `戻り${s.scenario.values["/scenario/slipBack"]}% · 成約率${s.scenario.values["/scenario/winRate"]}%`, tone: "muted" as const },
+      { label: `${scope} 営業利益`, value: op.cur.toFixed(precision), unit: "億円", delta: `${sg(drop, precision)} vs ${versionLabel(cmp)}`, tone: drop < 0 ? "bad" as const : "good" as const },
+      { label: "うち売上要因", value: sg(revPart, precision), unit: "億円", delta: "営業利益への増減寄与", tone: "muted" as const },
+      { label: `${scope} 売上`, value: rev.cur.toFixed(precision), unit: "億円", delta: `${sg(rev.cur - rev.cmp, precision)} vs ${versionLabel(cmp)}`, tone: "muted" as const },
+      { label: `${scope} 基本シナリオ`, value: sc.base.toFixed(precision), unit: "億円", delta: `戻り${s.scenario.values["/scenario/slipBack"]}% · 成約率${s.scenario.values["/scenario/winRate"]}%`, tone: "muted" as const },
     ],
   };
 }

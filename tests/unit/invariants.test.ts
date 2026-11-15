@@ -128,3 +128,13 @@ test('small filtered variances keep their sign and scenario values stay distingu
   assert.ok(labels.includes('10月版 1.59'));
   assert.ok(labels.some(s => s.startsWith('+0.02')));
 });
+
+test('scenario assumptions remain inside the chart at phone and PDF widths', () => {
+  for (const w of [300, 480, 700]) {
+    const c = scenarioChart({ cases:[{name:'基本',value:1.63,note:'戻り100% · 30.3% · 補正なし'}], refs:[{label:'10月版',value:1.59}], w });
+    for (const mark of c.marks) if (mark.t === 'text' && !mark.anchor) {
+      const width = [...mark.text].reduce((sum, ch) => sum + (/[^\x00-\xff]/.test(ch) ? mark.size ?? 12 : (mark.size ?? 12) * .58), 0);
+      assert.ok(mark.x + width <= c.w, `${w}: ${mark.text}`);
+    }
+  }
+});

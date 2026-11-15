@@ -151,7 +151,21 @@ export function accuracyChart(o: { versions: string[]; series: { name: string; v
 export function scenarioChart(o: { cases: { name: string; value: number; note: string; main?: boolean }[]; refs: { value: number; label: string }[]; w: number; h?: number }): Chart {
   // the plot on the left, each case's value and assumptions in a column of their own on the right,
   // so labels never cross the reference lines
-  const W = Math.max(300, o.w), H = o.h ?? 150, noteW = Math.min(230, Math.round(W * 0.42)), m = { t: 26, r: noteW + 14, b: 22, l: 40 };
+  const W = Math.max(300, o.w), noteW = Math.min(230, Math.round(W * 0.42)), m = { t: 26, r: noteW + 14, b: 22, l: 40 };
+  // Keep assumptions below the value and delta. Wrap them inside their column,
+  // including when the same figure is rendered at a smaller PDF or mobile width.
+  const noteLines = o.cases.map(c => {
+    const lines: string[] = []; let line = "", width = 0;
+    for (const ch of c.note) {
+      const advance = /[^\x00-\xff]/.test(ch) ? 10.5 : 6;
+      if (width + advance > noteW - 10 && line) { lines.push(line.trim()); line = ""; width = 0; }
+      line += ch; width += advance;
+    }
+    if (line) lines.push(line.trim());
+    return lines;
+  });
+  const rowHeight = Math.max(34, 16 + Math.max(1, ...noteLines.map(lines => lines.length)) * 12);
+  const H = Math.max(o.h ?? 150, m.t + m.b + rowHeight * o.cases.length);
   const vals = [...o.cases.map((c) => c.value), ...o.refs.map((r) => r.value)];
   const lo = Math.floor(Math.min(...vals) - 0.4), hi = Math.ceil(Math.max(...vals) + 0.4);
   const x = (v: number) => m.l + ((v - lo) / (hi - lo)) * (W - m.l - m.r), rh = (H - m.t - m.b) / o.cases.length;
@@ -172,8 +186,10 @@ export function scenarioChart(o: { cases: { name: string; value: number; note: s
     marks.push({ t: "text", x: m.l - 10, y: cy + 4, text: c.name, size: 11.5, weight: c.main ? 600 : 400, fill: "ink", anchor: "end" });
     marks.push({ t: "line", x1: x(base), x2: x(c.value), y1: cy, y2: cy, stroke: "pos", sw: 2, opacity: 0.35 });
     marks.push({ t: "circle", cx: x(c.value), cy, r: c.main ? 6 : 4.5, fill: "pos", stroke: "surface", sw: 2 });
-    marks.push({ t: "text", x: nx + 4, y: cy + 4, text: fmt(c.value, precision), size: 12, weight: c.main ? 600 : 400, fill: "ink" });
-    marks.push({ t: "text", x: nx + 48 + Math.max(0, precision - 2) * 7, y: cy + 4, text: `${sg(c.value - base, precision)}  ${c.note}`, size: 10.5, fill: "muted" });
+    const ty = cy + 4 - noteLines[i].length * 6;
+    marks.push({ t: "text", x: nx + 4, y: ty, text: fmt(c.value, precision), size: 12, weight: c.main ? 600 : 400, fill: "ink" });
+    marks.push({ t: "text", x: nx + 48, y: ty, text: sg(c.value - base, precision), size: 10.5, fill: "muted" });
+    noteLines[i].forEach((line, j) => marks.push({ t: "text", x: nx + 4, y: ty + 12 * (j + 1), text: line, size: 10.5, fill: "muted" }));
   });
   return { w: W, h: H, marks, label: "シナリオ別の通期営業利益" };
 }
