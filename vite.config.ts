@@ -12,5 +12,7 @@ export default defineConfig(({ command }) => ({
   // assetsInlineLimit 0: no data: URLs, so the strict CSP (font-src 'self') holds in the build too
   build: { outDir: "dist/app", target: "es2022", assetsInlineLimit: 0, chunkSizeWarningLimit: 4000, rollupOptions: { onwarn: quiet } },
   worker: { format: "es" },
-  optimizeDeps: { exclude: ["@duckdb/duckdb-wasm"] },
+  // The PDF worker is loaded only on export. Discover its dependencies up front so the first
+  // export cannot trigger Vite's dependency rebundle/full reload and erase the in-memory report.
+  optimizeDeps: { include: ["@react-pdf/renderer", "@json-render/react-pdf"], exclude: ["@duckdb/duckdb-wasm"] },
 }));

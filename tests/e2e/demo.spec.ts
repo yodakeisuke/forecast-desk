@@ -11,8 +11,6 @@ async function playNext(page: Page) {
   await expect(page.locator(".demo .dots button.cur")).toHaveCount(0, { timeout: 90_000 });
 }
 
-test.describe.configure({ mode: "serial" });
-
 test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page }) => {
   test.setTimeout(300_000);
   await boot(page);
@@ -47,6 +45,8 @@ test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page })
   expect(v["/scenario/slipBack"]).toBe(50);
   s = await state(page);
   expect(s.scenario.owner["/scenario/slipBack"]).toBe("agent");
+  await page.getByRole("slider", { name: "成約率（ホスト）", exact: true }).press("ArrowUp");
+  s = await state(page);
   expect(s.scenario.owner["/scenario/winRate"]).toBe("user");
   const scen = page.locator(".gen-card").nth(1).frameLocator("iframe.gen-frame");
   await expect(scen.getByText("Agent", { exact: true }).first()).toBeVisible();
@@ -60,10 +60,11 @@ test("the demo runs end to end: EDA, GenUI, report, PDF, undo", async ({ page })
   await expect(page.locator(".doc .rp-sec")).toHaveCount(7);
 
   // the PDF only leaves after a person confirms
-  await page.getByRole("button", { name: "PDFを書き出す" }).click();
   const download = page.waitForEvent("download", { timeout: 90_000 });
+  await page.getByRole("button", { name: "PDFを書き出す" }).click();
   // a person's own click needs no confirm; the agent's press does (covered in the security suite)
   const d = await download;
+  await d.saveAs(test.info().outputPath("forecast-report.pdf"));
   const path = await d.path();
   const head = (await import("node:fs")).readFileSync(path!).subarray(0, 5).toString();
   expect(head).toBe("%PDF-");

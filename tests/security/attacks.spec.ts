@@ -1,6 +1,8 @@
 // The attack suite: what a hostile generated widget, a forged message, a prompt-injected agent or a bad SQL
 // string can try, and what must happen instead. Each test checks the effect, not just that an error appeared.
 import { createServer, type Server } from "node:http";
+import { createServer as createTcpServer } from "node:net";
+import { createSocket } from "node:dgram";
 import { expect, test } from "@playwright/test";
 import { boot, call, probeWidget, scenario, security } from "../helpers";
 
@@ -14,6 +16,50 @@ test.afterAll(() => { trap?.close(); });
 test.beforeEach(() => { hits = []; });
 
 const frameOf = (page: any, wid: string) => page.frameLocator(`#w-${wid} iframe`);
+
+test("生成UIのWebRTC・preconnect・自己遷移も実通信を遮断する", async ({ page, browser }) => {
+  let udpPackets = 0, connections = 0;
+  const udp = createSocket("udp4");
+  const tcp = createTcpServer(socket => { connections++; socket.end(); });
+  udp.on("message", () => udpPackets++);
+  await new Promise<void>(resolve => udp.bind(5998, "127.0.0.1", resolve));
+  await new Promise<void>(resolve => tcp.listen(5997, "127.0.0.1", resolve));
+  try {
+    // Prove the observation endpoints work before attributing zero traffic to the app's policy.
+    await page.goto("http://127.0.0.1:5999/control");
+    await page.evaluate(async () => {
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "http://127.0.0.1:5997"; document.head.append(hint);
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
+      try { pc.createDataChannel("control"); await pc.setLocalDescription(await pc.createOffer()); await new Promise(resolve => setTimeout(resolve, 2000)); }
+      finally { pc.close(); }
+    });
+    await expect.poll(() => udpPackets, { timeout: 5000 }).toBeGreaterThan(0);
+    await expect.poll(() => connections, { timeout: 5000 }).toBeGreaterThan(0);
+    const control = { udpPackets, connections };
+    await boot(page);
+    hits = []; udpPackets = 0; connections = 0;
+    const r = await call(page, "render_widget", { title: "non-Fetch network probes", code: probeWidget(`
+      const hint = document.createElement("link"); hint.rel = "preconnect"; hint.href = "http://127.0.0.1:5997"; document.head.append(hint);
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:127.0.0.1:5998" }] });
+        setTimeout(() => pc.close(), 2000);
+        pc.createDataChannel("probe"); await pc.setLocalDescription(await pc.createOffer());
+      } catch (e) { log("RTC rejected: " + e.message); }
+      setTimeout(() => { try { location.assign("http://127.0.0.1:5999/navigation?probe=1"); } catch {} }, 500);
+      log("probes scheduled");
+    `) });
+    expect(r.status).toBe("ready");
+    await page.waitForTimeout(3000);
+    const evidence = { browser: browser.version(), control, protected: { udpPackets, connections, requests: [...hits] } };
+    await test.info().attach("network-evidence", { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
+    expect(udpPackets, "STUN packets escaped the generated frame").toBe(0);
+    expect(connections, "preconnect opened an outside socket").toBe(0);
+    expect(hits, "iframe navigation or other requests left the generated frame").toEqual([]);
+  } finally {
+    udp.close();
+    await new Promise<void>(resolve => tcp.close(() => resolve()));
+  }
+});
 
 test("生成コードはネットワークに出られない（fetch・画像・WebSocket・フォーム・beacon）", async ({ page }) => {
   await boot(page);

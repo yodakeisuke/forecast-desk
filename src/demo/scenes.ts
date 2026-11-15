@@ -3,7 +3,6 @@
 // numbers those calls returned. With ChatGPT or Claude connected, they make these same calls themselves.
 import { call as rawCall, setRequest } from "../agent/tools";
 import { actions, getState } from "../state/store";
-import { broadcastState } from "../genui/host";
 import { sg } from "../shared/charts";
 import { scenarioPL } from "../data/cube";
 import { accuracyWidget, exfilWidget, scenarioWidget } from "./widgets";
@@ -98,10 +97,8 @@ WHERE v.kind = 'forecast' GROUP BY 1 ORDER BY 2 DESC` });
       const base = await scenarioBase();
       await s.call("highlight", { target: `widget:${w.widget}/スリップ3件の戻り率`, note: `半分戻れば北米Enterpriseの通期営業利益は${base.toFixed(1)}億円。Agentが入れた値には印が付き、ドラッグで上書きも、Agentの変更だけを戻すこともできます。` });
       await s.wait(2400);
-      // the person takes over the other driver (in a live session they drag it themselves)
+      // Leave the other driver for a real human interaction. The player must not impersonate a person.
       actions.closeNotes();
-      for (const v of [w10 + 1, w10 + 2]) { actions.setScenario("/scenario/winRate", v, "user"); broadcastState("/scenario/winRate"); await s.wait(420); }
-      actions.pushItem({ who: "user", result: `北米Ent 成約率を ${w10 + 2}% に変更（ウィジェット）`, running: false });
     },
   },
   {

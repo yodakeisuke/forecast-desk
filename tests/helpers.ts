@@ -1,7 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
-export async function boot(page: Page) {
-  await page.goto("/?demo=1");
+export async function boot(page: Page, url = "/?demo=1") {
+  await page.goto(url);
   await expect(page.locator(".kpis .kpi .v").first()).toBeVisible({ timeout: 30_000 });
   await page.waitForFunction(() => !!(window as any).fpa && !!(window as any).__fpaTest);
 }
