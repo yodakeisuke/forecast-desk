@@ -13,6 +13,8 @@ const P: Record<Tone, string> = {
   grid: "#e8e7e1", axis: "#c3c2b7", s1: "#2a78d6", s2: "#eb6834", s3: "#1baf7a", surface: "#ffffff", sunken: "#f6f6f3", agent: "#6250d6", none: "none",
 };
 const F = "NotoSansJP";
+// A4 content width, excluding page padding and the figure border/padding.
+const FIGURE_WIDTH = 595.28 - 46 * 2 - 8 * 2 - 0.6 * 2;
 // Japanese line breaks must not acquire English syllable hyphens.
 Font.registerHyphenationCallback(word => /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u.test(word)
   ? Array.from(word).flatMap(char => [char, ""])
@@ -39,7 +41,7 @@ const s = StyleSheet.create({
   td: { fontSize: 8.5, paddingHorizontal: 4 },
   li: { flexDirection: "row", marginBottom: 2 },
   callout: { backgroundColor: P.sunken, borderRadius: 4, padding: 6, fontSize: 8.5, color: P.ink2, marginTop: 4 },
-  foot: { position: "absolute", bottom: 24, left: 46, right: 46, fontSize: 7, color: P.muted, flexDirection: "row", justifyContent: "space-between" },
+  foot: { position: "absolute", top: 806, left: 46, right: 46, fontSize: 7, color: P.muted },
 });
 
 let blocks: Record<string, Block[]> = {};
@@ -56,7 +58,7 @@ function rich(text: string): ReactNode[] {
 }
 
 function ChartSvg({ c }: { c: Chart }) {
-  const scale = Math.min(1, 500 / c.w);
+  const scale = Math.min(1, FIGURE_WIDTH / c.w);
   return (
     <Svg width={c.w * scale} height={c.h * scale} viewBox={`0 0 ${c.w} ${c.h}`}>
       {c.marks.map((m: Mark, i) => {
@@ -83,7 +85,7 @@ function Tree({ n, root }: { n: SvgNode; root?: boolean }): ReactNode {
   for (const [k, v] of Object.entries(n.a)) a[camel(k)] = /^-?[\d.]+(px)?$/.test(v) ? parseFloat(v) : v;
   if (n.tag === "text" || n.tag === "tspan") { a.style = { fontFamily: F, fontSize: a.fontSize ?? 10, fontWeight: Number(a.fontWeight) || 400 }; delete a.fontSize; delete a.fontWeight; }
   if (root) {
-    const w = Number(a.width) || 400, h = Number(a.height) || 100, sc = Math.min(1, 500 / w);
+    const w = Number(a.width) || 400, h = Number(a.height) || 100, sc = Math.min(1, FIGURE_WIDTH / w);
     a.viewBox ??= `0 0 ${w} ${h}`; a.width = w * sc; a.height = h * sc;
   }
   return <C {...a}>{n.text}{n.c?.map((c, i) => <Tree key={i} n={c} />)}</C>;
@@ -114,10 +116,11 @@ const { registry } = defineRegistry(reportCatalog, {
     Document: ({ props, children }: any) => (
       <Document title={props.title} author={props.author} subject="月次フォーキャストレビュー" creator="Forecast Desk">
         <Page size="A4" style={s.page}>
+          <Text style={s.foot} fixed>{props.materials}</Text>
+          <Text style={[s.foot, { textAlign: "right" }]} fixed render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
           <Text style={s.eb}>{props.eyebrow}</Text>
           <Text style={s.h1}>{props.title}</Text>
           {children}
-          <View style={s.foot} fixed><Text>{props.materials}</Text><Text render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} /></View>
         </Page>
       </Document>
     ),
