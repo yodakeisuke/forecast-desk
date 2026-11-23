@@ -217,6 +217,42 @@ fact_deal(deal_id, company, owner, region, segment, product, arr, stage_v09, sta
     },
   },
   {
+    name: "set_scenario", title: "シナリオの前提を変える",
+    description: `シナリオ試算の前提を変え、通期営業利益の試算を返す。win_rate は成約率（%）、slip_back はスリップ案件の戻り率（%）、na_bias は見通し補正（%）。指定しない前提はそのまま。人が画面のスライダーで同じ値を動かせる。${PATTERN}`,
+    inputSchema: { type: "object", properties: {
+      win_rate: { type: "number", minimum: 0, maximum: 100 }, slip_back: { type: "number", minimum: 0, maximum: 100 }, na_bias: { type: "number", minimum: -30, maximum: 30 },
+    }, additionalProperties: false },
+    target: () => "c-scenario",
+    summarize: (o) => `試算 営業利益 ${fmt(o.op, 2)}億円（10月版 ${fmt(o.op10, 2)}億円）`,
+    async execute(i) {
+      await showOverview();
+      const steps: { ref: string; action: string; args: unknown[] }[] = [];
+      if (i.slip_back !== undefined) steps.push({ ref: "スリップ案件の戻り率（シナリオ）", action: "setValue", args: [i.slip_back] });
+      if (i.win_rate !== undefined) steps.push({ ref: "成約率（シナリオ）", action: "setValue", args: [i.win_rate] });
+      if (i.na_bias !== undefined) steps.push({ ref: "見通し補正（シナリオ）", action: "setValue", args: [i.na_bias] });
+      if (!steps.length) throw new Error("変える前提がありません");
+      await act(steps);
+      const s = getState(), v = s.scenario.values;
+      const r = await cube.scenarioPL({ slipBack: v["/scenario/slipBack"], winRate: v["/scenario/winRate"], naBias: v["/scenario/naBias"], filters: s.filters });
+      return { scenario: { win_rate: v["/scenario/winRate"], slip_back: v["/scenario/slipBack"], na_bias: v["/scenario/naBias"] }, op: r.base, op10: r.refs[0].value, parts: r.parts };
+    },
+  },
+  {
+    name: "get_meeting_questions", title: "会議で出た問いを読む",
+    description: `会議モードで出た問いと、その状態を返す。status が "handoff" の問いは、画面の切り替えだけでは答えられず、エージェントに理由の調査を頼んだもの。画面はすでに問いの範囲に寄せてある。調べた結果は highlight で注記し、answer_meeting_question で要点を返す。${UNTRUSTED}`,
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+    annotations: { readOnlyHint: true, untrustedContentHint: true },
+    summarize: (o) => `${o.questions.length}件 · 調査待ち ${o.questions.filter((q: Json) => q.status === "handoff" || q.status === "investigating").length}件`,
+    async execute() { const m = await import("../meeting/session"); return { on: m.meeting.getState().on, questions: m.openQuestions(), note: UNTRUSTED }; },
+  },
+  {
+    name: "answer_meeting_question", title: "会議の問いに答えを返す",
+    description: "get_meeting_questions の問いに、調べた要点（1〜2文、数字はツール結果のものだけ）を返す。会議の問いの一覧に表示され、問いは「回答済み」になる。",
+    inputSchema: { type: "object", properties: { id: { type: "integer", minimum: 1 }, summary: { type: "string", minLength: 1, maxLength: 300 } }, required: ["id", "summary"], additionalProperties: false },
+    summarize: (o) => (o.ok === false ? `失敗: ${o.error}` : "回答を記録"),
+    async execute(i) { const m = await import("../meeting/session"); return m.answerQuestion(Number(i.id), String(i.summary)); },
+  },
+  {
     name: "get_catalog", title: "ウィジェットSDKの説明を読む",
     description: "render_widget の前に呼ぶ。サンドボックスに積んだSDK（@fpa/genui-sdk）の部品（json-renderのカタログ fpa@1）、データhook、書き方の決まりを返す。name: \"report@1\" なら報告書の素材の説明。",
     inputSchema: { type: "object", properties: { name: { enum: ["fpa@1", "report@1"] } }, additionalProperties: false },
@@ -313,7 +349,10 @@ let pendingRequest: { title: string } | null = null;
 export function setRequest(title: string) { pendingRequest = { title }; }
 
 const pretty = (i: unknown) => { const s = JSON.stringify(i ?? {}, null, 1).replace(/\n\s*/g, " "); return s.length > 900 ? `${s.slice(0, 900)}…` : s; };
-const CHANNEL_SRC: Record<Channel, string> = { webmcp: "WebMCP", js: "JavaScript（window.fpa）", demo: "デモ再生" };
+const CHANNEL_SRC: Record<Channel, string> = { webmcp: "WebMCP", js: "JavaScript（window.fpa）", demo: "デモ再生", fast: "会議モード" };
+const toolListeners = new Set<(channel: Channel, tool: string, input: Json) => void>();
+/** Meeting mode listens for the main agent picking up a handed-off question. */
+export function onToolCall(fn: (channel: Channel, tool: string, input: Json) => void) { toolListeners.add(fn); return () => toolListeners.delete(fn); }
 
 const validators = new Map<ToolDef, z.ZodType>();
 function validateInput(def: ToolDef, input: unknown) {
@@ -333,6 +372,7 @@ export async function invoke(def: ToolDef, input: unknown, channel: Channel): Pr
   catch (error) { return { ok: false, status: "error", error: String((error as Error).message ?? error) }; }
   return withCaller(channel, async () => {
     const who = currentAgent();
+    for (const l of toolListeners) { try { l(channel, def.name, (input ?? {}) as Json); } catch { /* a listener never blocks a tool */ } }
     // calls after a request stay under it while they keep coming (same agent, < 45s apart)
     let group: { title: string; src: string; agent: string };
     if (pendingRequest) {

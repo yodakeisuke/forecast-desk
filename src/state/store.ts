@@ -8,7 +8,7 @@ import type { Block } from "../report/figures";
 import { REGIONS, SEGMENTS, PRODUCTS, type Dim, type VersionId } from "../data/model";
 
 export type Who = "agent" | "user" | "widget" | "init";
-export type Channel = "webmcp" | "js" | "demo";
+export type Channel = "webmcp" | "js" | "demo" | "fast";
 export type Filters = { region?: string | null; segment?: string | null; product?: string | null };
 export type Tab = "variance" | "pipeline" | "drivers";
 export type View = { tab: Tab; by: Dim[]; open: string[]; focus: string | null; context: Filters; detail: string | null };

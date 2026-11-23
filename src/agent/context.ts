@@ -1,6 +1,6 @@
 import type { Channel } from "../state/store";
 
-const NAMES: Record<Channel, string> = { webmcp: "ChatGPT", js: "JavaScript agent", demo: "ChatGPT" };
+const NAMES: Record<Channel, string> = { webmcp: "ChatGPT", js: "JavaScript agent", demo: "ChatGPT", fast: "速いモデル（会議モード）" };
 let caller = "エージェント";
 let tail: Promise<unknown> = Promise.resolve();
 

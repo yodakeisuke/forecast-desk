@@ -29,7 +29,7 @@ npm run dev
 
 ツールは2つの経路で同じものを出しています。
 
-1. **WebMCP**: `document.modelContext.registerTool` で15個のツールを登録します。ブラウザに WebMCP がなければ `@mcp-b/global` のポリフィルを使います（右上のチップに `WebMCP polyfill · 15 tools` と出ます）。WebMCP に対応したブラウザ・拡張・エージェントから、このタブのツールとして見えます。
+1. **WebMCP**: `document.modelContext.registerTool` で18個のツールを登録します。ブラウザに WebMCP がなければ `@mcp-b/global` のポリフィルを使います（右上のチップに `WebMCP polyfill · 18 tools` と出ます）。WebMCP に対応したブラウザ・拡張・エージェントから、このタブのツールとして見えます。
 2. **JavaScript**: ページでJSを実行できるエージェント向けに `window.fpa` があります。
 
 ```js
@@ -42,9 +42,33 @@ await window.fpa.call("get_catalog", { name: "fpa@1" })   // ウィジェット�
 await window.fpa.call("compose_report", { title: "10月版 フォーキャスト報告", summary: "…" })
 ```
 
-主なツール: `query_data` `explore_sql`（読み取り専用SQL） `set_filter` `drill_down` `drill_up` `drill_across` `drill_through` `highlight` `get_catalog` `render_widget` `operate_widget` `compose_report`、UI SDK 汎用の `snapshot` `act` `query`。
+主なツール: `query_data` `explore_sql`（読み取り専用SQL） `set_filter` `drill_down` `drill_up` `drill_across` `drill_through` `highlight` `get_catalog` `render_widget` `operate_widget` `compose_report` `set_scenario` `get_meeting_questions` `answer_meeting_question`、UI SDK 汎用の `snapshot` `act` `query`。
 
 Chrome では起動時に `Origin trial controlled feature not enabled: 'tools'` という警告が出ますが、`Permissions-Policy: tools=(self)` を先に宣言しているためで、動作には影響しません。
+
+## 会議モード（速い判断モデル Jev）
+
+月次フォーキャスト会議で出た問い（「欧州だけだと、前月版比でどう？」「成約率が前月並みに戻ったら？」）を上の欄に打つと、1〜2秒で画面がその問いに答える形に変わります。右上の「会議モード」で切り替えます。
+
+- 判断は TypeSafe の決定モデル **Jev** がします。Jev は決まった選択肢（比較元・地域・セグメント・製品・主役のカード・見出しの数字・シナリオの前提）から選ぶだけで、文章も数字も書きません。数字はアプリがデータから集計します。
+- 確率が低い項目は画面のまま残します。「なぜ」はエージェントに渡し（`get_meeting_questions` / `answer_meeting_question`）、ダッシュボードにない問いは画面を動かしません。
+- 変更は人やエージェントと同じ監査つきツール（`set_filter` `set_scenario`）を通り、操作履歴に「会議モード」として残ります。速いモデルが変えた条件は琥珀色、エージェントのものは青です。どの問いの画面にも、一覧から1手で戻れます。
+
+### APIキーの扱い
+
+キーはブラウザに一切渡しません。`npm run dev` / `npm run preview` のローカルサーバーだけが持ち、`/api/decide` でJevへの決まった形のリクエストを自分で組み立てて送ります。
+
+```bash
+cp .env.example .env     # .env はgit管理外
+# .env の TYPESAFE_API_KEY= に自分で貼る（チャット・Issue・PR・コミットには貼らない）
+npm run dev
+```
+
+- `VITE_` で始めないので、ビルドに入りません（e2e テストでも確認しています）。CSP は `connect-src 'self'` のままです。
+- `/api/decide` は同じオリジンだけ（Host・Origin・Sec-Fetch-Site・Content-Type を検査）、4KB・形の決まった本文だけを受け、問いの中身や選択肢・モデルをブラウザから変えられません（汎用プロキシにならない）。回数に上限があり、Jevの応答本文やエラー本文は返しません。
+- クラウド環境では、キーをネットワークの秘密情報（ホスト `api.typesafe.ai`、ヘッダー `Authorization: Bearer …`）に登録し、`TYPESAFE_AUTH=proxy` にすると、キーはこのプロセスにも入りません。
+- 専用のキーを、使用上限をつけて発行し、使い終わったら失効させてください。
+- キーがない環境（公開サイト・テスト）は **かんたんモード**（キーワードの規則）で動きます。公開サイトでJevを使うには、認証と回数制限のあるサーバー側の中継が別に必要です。
 
 ## セキュリティの壁
 
@@ -63,7 +87,8 @@ Chrome では起動時に `Origin trial controlled feature not enabled: 'tools'`
 npx playwright install chromium   # 初回だけ
 npm test                          # 全部（約1分半）
 npm run test:security             # 攻撃テスト
-npm run test:e2e                  # デモ通し・PDF・ドリル・WebMCP
+npm run test:e2e                  # デモ通し・PDF・ドリル・WebMCP・会議モード
+npm run test:unit                 # 判断（Jev・かんたんモード）と中継の検査など
 ```
 
 テストは `npm run dev` を自動で起動します（起動済みならそれを使います）。

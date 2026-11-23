@@ -4,6 +4,14 @@ import { Select, SelectContent, SelectItem, SelectLabel, SelectTrigger, SelectVa
 import { REGIONS, SEGMENTS, PRODUCTS, VERSIONS, type VersionId } from "../data/model";
 import { actions, useApp, type Filters } from "../state/store";
 import { Ic } from "./icons";
+import { useMarks, type CondKey, type Marks } from "../meeting/session";
+
+/** amber: the meeting question changed this (old value shown); 引き継ぎ: kept from an earlier question */
+function Mark({ k, marks }: { k: CondKey; marks: Marks }) {
+  if (k in marks.changed) return <span className="fast-was" title="速いモデルが変えた条件（変更前）">{marks.changed[k]}</span>;
+  if (marks.carried.includes(k)) return <span className="carried">引き継ぎ</span>;
+  return null;
+}
 
 const who = (d: { source?: string } | undefined) => (d?.source === "agent" ? "agent" : "user");
 export const COMPARE_ITEMS = VERSIONS.filter(v => v.id !== "v10").map(v => ({ value: v.id, label: v.label }));
@@ -11,12 +19,14 @@ export const COMPARE_ITEMS = VERSIONS.filter(v => v.id !== "v10").map(v => ({ va
 function FilterSelect({ k, label, options }: { k: keyof Filters; label: string; options: readonly string[] }) {
   const value = useApp((s) => s.filters[k] ?? "all");
   const byAgent = useApp((s) => !!s.byAgent[k]);
+  const marks = useMarks();
   const items = [{ value: "all", label: "すべて" }, ...options.map((o) => ({ value: o, label: o }))];
   return (
     <Select value={value} items={items} onValueChange={(v: unknown, d: any) => actions.setFilter(k, v === "all" ? null : String(v), who(d))}>
-      <div className={`ctl${byAgent && value !== "all" ? " by-agent" : ""}`} data-target={`filter:${k}`}>
+      <div className={`ctl${byAgent && value !== "all" ? " by-agent" : ""}${k in marks.changed ? " by-fast" : ""}`} data-target={`filter:${k}`}>
         <SelectLabel className="k">{label}</SelectLabel>
         <SelectTrigger className="sel-trigger"><SelectValue /><Ic.chev /></SelectTrigger>
+        <Mark k={k} marks={marks} />
       </div>
       <SelectContent className="sel-content">
         {items.map((it) => <SelectItem key={it.value} value={it.value} className="sel-item">{it.label}</SelectItem>)}
@@ -28,12 +38,14 @@ function FilterSelect({ k, label, options }: { k: keyof Filters; label: string; 
 export function Controls() {
   const compare = useApp((s) => s.compare);
   const byAgent = useApp((s) => !!s.byAgent.compare);
+  const marks = useMarks();
   return (
     <div className="controls dimmable" id="controls">
       <Select value={compare} items={COMPARE_ITEMS} onValueChange={(v: unknown, d: any) => v && actions.setCompare(v as VersionId, who(d))}>
-        <div className={`ctl${byAgent ? " by-agent" : ""}`} data-target="filter:compare">
+        <div className={`ctl${byAgent ? " by-agent" : ""}${"compare" in marks.changed ? " by-fast" : ""}`} data-target="filter:compare">
           <SelectLabel className="k">比較元</SelectLabel>
           <SelectTrigger className="sel-trigger"><SelectValue /><Ic.chev /></SelectTrigger>
+          <Mark k="compare" marks={marks} />
         </div>
         <SelectContent className="sel-content">{COMPARE_ITEMS.map(c => <SelectItem key={c.value} value={c.value} className="sel-item">{c.label}</SelectItem>)}</SelectContent>
       </Select>

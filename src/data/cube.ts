@@ -231,6 +231,12 @@ export async function scenarioBase(filters: Filters = {}) {
     return { op10: pl.v10.op, op09: pl.v09.op, cm, slipRev: -pipe.slipped.revenueImpact, slipArr: pipe.slipped.arr, pipeRev: num(open.x), pipeArr: num(open.a), naNewRev: num(na.x), win10: num(win.w) };
 
 }
+/** 9月版 and 10月版 win rates for a scope (the scenario's reference points). */
+export async function winRates(filters: Filters = {}) {
+  const rows = await q(`SELECT version_id v, avg(value) w FROM fact_driver d WHERE driver='成約率' AND version_id IN ('v09','v10') AND ${where({ region: filters.region, segment: filters.segment }, 'd')} GROUP BY 1`);
+  const get = (v: string) => num(rows.find((r) => r.v === v)?.w ?? 0);
+  return { v09: get("v09"), v10: get("v10") };
+}
 export async function scenarioPL(o: { slipBack: number; winRate: number; naBias: number; filters?: Filters }) {
   const b = await scenarioBase(o.filters);
   const calc = (s: number, w: number, n: number) => {
