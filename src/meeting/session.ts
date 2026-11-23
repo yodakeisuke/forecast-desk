@@ -16,8 +16,9 @@ import { DEFAULT_ORDER, SLOT_INFO, SLOTS, type KpiKey, type Plan, type Screen, t
 
 export type Engine = "jev" | "local";
 export type Status = "answered" | "handoff" | "investigating" | "resolved" | "unsupported" | "memo";
-export type CondKey = "compare" | "region" | "segment" | "product" | "winRate" | "slipBack";
-export type Conditions = { compare: VersionId; region: string | null; segment: string | null; product: string | null; winRate: number; slipBack: number };
+export type CondKey = "compare" | "region" | "segment" | "product" | "winRate" | "slipBack" | "naBias";
+const COND_KEYS: CondKey[] = ["compare", "region", "segment", "product", "winRate", "slipBack", "naBias"];
+export type Conditions = { compare: VersionId; region: string | null; segment: string | null; product: string | null; winRate: number; slipBack: number; naBias: number };
 export type Entry = {
   id: number; at: string; question: string; plan: Plan; engine: Engine; model: string; ms: number;
   before: Conditions; after: Conditions;
@@ -43,7 +44,7 @@ const set = meeting.setState, get = meeting.getState;
 // ---------- the screen, as the decision model sees it ----------
 export function conditions(): Conditions {
   const s = getState();
-  return { compare: s.compare, region: s.filters.region ?? null, segment: s.filters.segment ?? null, product: s.filters.product ?? null, winRate: s.scenario.values["/scenario/winRate"], slipBack: s.scenario.values["/scenario/slipBack"] };
+  return { compare: s.compare, region: s.filters.region ?? null, segment: s.filters.segment ?? null, product: s.filters.product ?? null, winRate: s.scenario.values["/scenario/winRate"], slipBack: s.scenario.values["/scenario/slipBack"], naBias: s.scenario.values["/scenario/naBias"] };
 }
 async function currentScreen(): Promise<Screen> {
   const s = getState();
@@ -59,7 +60,7 @@ async function currentScreen(): Promise<Screen> {
 export function scopeLabel(c: Pick<Conditions, "region" | "segment" | "product" | "compare">) {
   return `${[c.region, c.segment, c.product].filter(Boolean).join(" / ") || "全社"} · ${versionLabel(c.compare)}比`;
 }
-const condLabel = (k: CondKey, c: Conditions) => k === "compare" ? versionLabel(c.compare) : k === "winRate" || k === "slipBack" ? `${c[k]}%` : (c[k] as string | null) ?? "すべて";
+const condLabel = (k: CondKey, c: Conditions) => k === "compare" ? versionLabel(c.compare) : k === "winRate" || k === "slipBack" || k === "naBias" ? `${c[k]}%` : (c[k] as string | null) ?? "すべて";
 
 // ---------- the decision ----------
 const UNAVAILABLE = new Set(["no-key"]);
@@ -110,6 +111,7 @@ async function applyConditions(want: Partial<Conditions>): Promise<string | null
   const scen: Record<string, number> = {};
   if (want.winRate !== undefined && want.winRate !== now.winRate) scen.win_rate = want.winRate;
   if (want.slipBack !== undefined && want.slipBack !== now.slipBack) scen.slip_back = want.slipBack;
+  if (want.naBias !== undefined && want.naBias !== now.naBias) scen.na_bias = want.naBias;
   if (Object.keys(scen).length) {
     const r = await call("set_scenario", scen, "fast") as { ok?: boolean; error?: string };
     if (r?.ok === false) return r.error ?? "シナリオの前提を変えられませんでした";
@@ -137,13 +139,21 @@ export async function ask(input: string) {
   try {
     const screen = await currentScreen();
     const d = await decide(question, screen);
+    // "back to last month's win rate" means the rate of the scope the question moves to, not the one on screen
+    if (d.plan.winRateFrom === "previous_month") {
+      const want = wantFromPlan(d.plan), now = conditions();
+      const pick = (k: "region" | "segment" | "product") => (k in want ? want[k] ?? null : now[k]);
+      const target = { region: pick("region"), segment: pick("segment"), product: pick("product") };
+      const w = await cube.winRates(target).catch(() => null);
+      if (w) d.plan.winRate = Math.round(w.v09 * 10) / 10;
+    }
     const ms = Math.round(performance.now() - t0);
     await pointerIdle();
     const before = conditions();
     const error = await applyConditions(wantFromPlan(d.plan));
     const after = conditions();
     const changed: Entry["changed"] = {};
-    for (const k of ["compare", "region", "segment", "product", "winRate", "slipBack"] as CondKey[]) if (before[k] !== after[k]) changed[k] = condLabel(k, before);
+    for (const k of COND_KEYS) if (before[k] !== after[k]) changed[k] = condLabel(k, before);
     const status: Status = d.plan.kind === "handoff" ? "handoff" : d.plan.kind === "unsupported" ? "unsupported" : "answered";
     const entry: Entry = { id: (get().entries.at(-1)?.id ?? 0) + 1, at: clock(), question, plan: d.plan, engine: d.engine, model: d.model, ms, before, after, changed, status, notesAt: maxNote(), error: error ?? undefined };
     transition(() => set((s) => ({ entries: [...s.entries, entry], current: d.plan.kind === "unsupported" ? s.current : entry.id, expanded: d.plan.kind === "unsupported" ? s.expanded : [], phase: "idle", pending: null, notice: error ?? d.notice })));
@@ -212,8 +222,7 @@ export function marksOf(s: MeetingState): Marks {
   const e = s.on && s.current !== null ? s.entries.find((x) => x.id === s.current) : undefined;
   if (!e) return { changed: {}, carried: [] };
   const start = s.entries[0].before, now = conditions();
-  const keys: CondKey[] = ["compare", "region", "segment", "product", "winRate", "slipBack"];
-  const carried = keys.filter((k) => !(k in e.changed) && now[k] !== start[k] && s.entries.some((x) => x.id < e.id && k in x.changed));
+  const carried = COND_KEYS.filter((k) => !(k in e.changed) && now[k] !== start[k] && s.entries.some((x) => x.id < e.id && k in x.changed));
   const changed = Object.fromEntries(Object.entries(e.changed).filter(([k]) => now[k as CondKey] === e.after[k as CondKey]));
   return { changed, carried };
 }

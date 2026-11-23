@@ -124,6 +124,7 @@ export function planFromJev(answers: JevAnswers, question: string, screen: Scree
     segment: kind === "unsupported" ? null : pick("segment"),
     product: kind === "unsupported" ? null : pick("product"),
     winRate: kind === "unsupported" ? null : winRate,
+    winRateFrom: kind !== "unsupported" && win === "previous_month" ? "previous_month" : undefined,
     slipBack: kind === "unsupported" ? null : slipBack,
     focus: winRate !== null || slipBack !== null ? (["c-scenario", ...focus.filter((s) => s !== "c-scenario")] as Slot[]).slice(0, 2) : focus,
     kpi: kpiA && conf.kpi >= 0.4 ? (kpiA.choice as KpiKey) : "op",

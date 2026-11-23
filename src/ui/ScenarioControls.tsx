@@ -8,7 +8,7 @@ import { scenarioPL } from "../data/cube";
 import { scenarioChart } from "../shared/charts";
 import { SvgChart } from "./SvgChart";
 import { useMarks, type CondKey } from "../meeting/session";
-const COND: Record<string, CondKey> = { "/scenario/slipBack": "slipBack", "/scenario/winRate": "winRate" };
+const COND: Record<string, CondKey> = { "/scenario/slipBack": "slipBack", "/scenario/winRate": "winRate", "/scenario/naBias": "naBias" };
 const fields = [{path:"/scenario/slipBack",label:"スリップ案件の戻り率",min:0,max:100},{path:"/scenario/winRate",label:"成約率",min:0,max:100},{path:"/scenario/naBias",label:"見通し補正",min:-30,max:30}];
 export function ScenarioControls() {
  const scenario=useApp(s=>s.scenario), filters=useApp(s=>s.filters);

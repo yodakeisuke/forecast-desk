@@ -84,6 +84,25 @@ test("会議モード: 畳んだカードもエージェントの操作で開く
   await expect(page.locator("#c-var")).toBeVisible();
 });
 
+test("会議モード: 「前月並み」は問いの範囲の成約率、戻ると見通し補正も戻る", async ({ page }) => {
+  await boot(page, "/");
+  await page.getByRole("button", { name: "会議モード" }).click();
+  await ask(page, "北米のEnterpriseで成約率が前月並みに戻ったら？");
+  const want = await page.evaluate(async () => {
+    const cube = await import("/src/data/cube.ts");
+    return Math.round((await cube.winRates({ region: "北米", segment: "Enterprise" })).v09 * 10) / 10;
+  });
+  await expect(page.locator('[data-target="filter:region"]')).toContainText("北米");
+  expect((await scenario(page))["/scenario/winRate"]).toBe(want);
+  await call(page, "set_scenario", { na_bias: -10 });
+  await ask(page, "欧州だけだと？");
+  await page.locator(".qlist").getByRole("button", { name: /北米のEnterprise/ }).click();
+  await page.waitForFunction(() => (window as any).__fpaMeeting.state().phase === "idle");
+  const v = await scenario(page);
+  expect(v["/scenario/naBias"]).toBe(0);
+  expect(v["/scenario/winRate"]).toBe(want);
+});
+
 test("鍵はブラウザに渡らない（中継はこのサーバーだけ）", async ({ page, request }) => {
   await boot(page, "/");
   const html = await (await request.get("/")).text();

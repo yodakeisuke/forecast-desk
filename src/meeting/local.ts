@@ -16,9 +16,10 @@ export function localPlan(question: string, screen: Screen): Plan {
   const segment = has(q, /Enterprise|エンタープライズ|大企業/i) ? "Enterprise" : has(q, /\bMid\b|中堅/i) ? "Mid" : has(q, /SMB|中小/i) ? "SMB" : whole ? "all" : null;
   const product = has(q, /Core/i) ? "Core" : has(q, /Analytics/i) ? "Analytics" : has(q, /Connect/i) ? "Connect" : whole ? "all" : null;
 
-  let winRate: number | null = null;
+  let winRate: number | null = null, winRateFrom: Plan["winRateFrom"];
   if (has(q, /成約率/)) {
     const stated = statedPercent(q, /成約率/);
+    if (stated === null && has(q, /戻|前月並|9月版並/)) winRateFrom = "previous_month";
     winRate = stated ?? (has(q, /戻|前月並|9月版並/) ? screen.refs.winRate09 : has(q, /下が|落ち/) ? screen.scenario.winRate - 2 : has(q, /上が|改善|高/) ? screen.scenario.winRate + 1 : null);
   }
   let slipBack: number | null = null;
@@ -42,5 +43,5 @@ export function localPlan(question: string, screen: Screen): Plan {
   if (focus.length < 2 && (region || segment || product || why)) add("c-var");
 
   const kpi: KpiKey = has(q, /利益率|マージン/) ? "margin" : has(q, /売上/) && !has(q, /利益/) ? "rev" : has(q, /ARR|新規|受注/) ? "newarr" : has(q, /解約|チャーン/) ? "churn" : "op";
-  return sanitize({ kind, compare: kind === "unsupported" ? null : compare, region: kind === "unsupported" ? null : region, segment: kind === "unsupported" ? null : segment, product: kind === "unsupported" ? null : product, winRate: kind === "unsupported" ? null : winRate, slipBack: kind === "unsupported" ? null : slipBack, focus, kpi, confidence: conf });
+  return sanitize({ kind, compare: kind === "unsupported" ? null : compare, region: kind === "unsupported" ? null : region, segment: kind === "unsupported" ? null : segment, product: kind === "unsupported" ? null : product, winRate: kind === "unsupported" ? null : winRate, winRateFrom: kind === "unsupported" ? undefined : winRateFrom, slipBack: kind === "unsupported" ? null : slipBack, focus, kpi, confidence: conf });
 }

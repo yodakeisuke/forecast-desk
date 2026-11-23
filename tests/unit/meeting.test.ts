@@ -18,7 +18,10 @@ test('かんたんモード: よく出る問いを画面の状態に変える', 
   assert.equal(why.kind, 'handoff'); assert.equal(why.region, '北米'); assert.equal(why.segment, 'Enterprise');
   const win = localPlan('成約率30%なら？', screen);
   assert.equal(win.winRate, 30); assert.equal(win.focus[0], 'c-scenario');
-  assert.equal(localPlan('成約率が前月並みに戻ったら？', screen).winRate, 29.1, 'the number comes from the app, not from the question or a model');
+  const back = localPlan('成約率が前月並みに戻ったら？', screen);
+  assert.equal(back.winRate, 29.1, 'the number comes from the app, not from the question or a model');
+  assert.equal(back.winRateFrom, 'previous_month', 'marked so the app re-reads it for the target scope');
+  assert.equal(win.winRateFrom, undefined);
   const off = localPlan('競合の値下げの影響は？', screen);
   assert.equal(off.kind, 'unsupported');
   assert.equal(off.region, null); assert.equal(off.compare, null); assert.equal(off.winRate, null, 'an unsupported question never moves the screen');
@@ -71,7 +74,7 @@ test('Jev: 「なぜ」は渡し、迷った問いは画面を動かさない', 
   const unsure = planFromJev(checkAnswers(req, { answers: { intent: { type: 'choice', choice: 'answer_on_screen', probabilities: { answer_on_screen: 0.4 } }, region: { type: 'choice', choice: '北米', probabilities: { 北米: 0.95 } } } }), 'x', screen);
   assert.equal(unsure.kind, 'unsupported'); assert.equal(unsure.region, null);
   const prev = planFromJev(checkAnswers(req, { answers: { intent: { type: 'choice', choice: 'answer_on_screen', probabilities: { answer_on_screen: 0.9 } }, win_rate: { type: 'choice', choice: 'previous_month', probabilities: { previous_month: 0.9 } } } }), '成約率が戻ったら', screen);
-  assert.equal(prev.winRate, 29.1); assert.equal(prev.focus[0], 'c-scenario');
+  assert.equal(prev.winRate, 29.1); assert.equal(prev.winRateFrom, 'previous_month'); assert.equal(prev.focus[0], 'c-scenario');
 });
 
 // ---------- the relay: the only place the key lives ----------

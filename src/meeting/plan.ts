@@ -35,6 +35,8 @@ export type Plan = {
   product: string | null;
   winRate: number | null;
   slipBack: number | null;
+  /** set when winRate is "back to last month's rate": the app re-reads it for the scope the question moves to */
+  winRateFrom?: "previous_month";
   focus: Slot[];
   kpi: KpiKey;
   /** probability of each decision, for the UI and for tests (0..1) */
@@ -63,6 +65,7 @@ export function sanitize(p: Plan): Plan {
     region: dim("region", p.region), segment: dim("segment", p.segment), product: dim("product", p.product),
     winRate: p.winRate === null || !Number.isFinite(p.winRate) ? null : r1(clamp(p.winRate, 0, 100)),
     slipBack: p.slipBack === null || !Number.isFinite(p.slipBack) ? null : Math.round(clamp(p.slipBack, 0, 100)),
+    winRateFrom: p.winRateFrom === "previous_month" && p.winRate !== null ? "previous_month" : undefined,
     focus: focus.length ? focus : p.winRate !== null || p.slipBack !== null ? ["c-scenario"] : ["c-bridge", "c-var"],
     kpi: (KPIS as readonly string[]).includes(p.kpi) ? p.kpi : "op",
     confidence: p.confidence ?? {},
