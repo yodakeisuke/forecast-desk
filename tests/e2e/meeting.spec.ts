@@ -88,10 +88,11 @@ test("会議モード: 「前月並み」は問いの範囲の成約率、戻る
   await boot(page, "/");
   await page.getByRole("button", { name: "会議モード" }).click();
   await ask(page, "北米のEnterpriseで成約率が前月並みに戻ったら？");
-  const want = await page.evaluate(async () => {
-    const cube = await import("/src/data/cube.ts");
+  // the app's own figure for the target scope (the dev server serves the module by path)
+  const want = await page.evaluate(async (path) => {
+    const cube = await import(path);
     return Math.round((await cube.winRates({ region: "北米", segment: "Enterprise" })).v09 * 10) / 10;
-  });
+  }, "/src/data/cube.ts");
   await expect(page.locator('[data-target="filter:region"]')).toContainText("北米");
   expect((await scenario(page))["/scenario/winRate"]).toBe(want);
   await call(page, "set_scenario", { na_bias: -10 });
