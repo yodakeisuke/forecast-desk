@@ -139,10 +139,10 @@ export function checkAnswers(req: JevRequest, raw: unknown): JevAnswers {
   if (!answers || typeof answers !== "object") return out;
   for (const [key, q] of Object.entries(req.questions)) {
     const a = answers[key] as JevChoice | undefined;
-    if (!a || typeof a.choice !== "string" || !(a.choice in q.criteria)) continue;
+    if (!a || typeof a.choice !== "string" || !Object.hasOwn(q.criteria, a.choice)) continue;
     const probabilities: Record<string, number> = {};
     for (const opt of Object.keys(q.criteria)) { const v = a.probabilities?.[opt]; if (typeof v === "number" && v >= 0 && v <= 1) probabilities[opt] = v; }
-    out[key] = { type: "choice", choice: a.choice, confidence: typeof a.confidence === "number" ? a.confidence : undefined, probabilities };
+    out[key] = { type: "choice", choice: a.choice, confidence: typeof a.confidence === "number" && a.confidence >= 0 && a.confidence <= 1 ? a.confidence : undefined, probabilities };
   }
   return out;
 }
