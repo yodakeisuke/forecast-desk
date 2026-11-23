@@ -77,7 +77,9 @@ test("Sites rejects invalid requests and unavailable quota before contacting Jev
   assert.equal(outbound, 0);
 });
 
-test("Sites uses a fixed upstream and returns only validated decisions even when upstream includes secrets", async () => {
+test("Sites uses a fixed upstream and returns only validated decisions even when upstream includes secrets", async (t) => {
+  const diagnostics: unknown[][] = [];
+  t.mock.method(console, "warn", (...args: unknown[]) => { diagnostics.push(args); });
   const handler = createSitesDecide(origin, {}, async (url, init) => {
     assert.equal(url, "https://api.typesafe.ai/v1/systemone");
     assert.equal(init?.method, "POST");
@@ -115,6 +117,12 @@ test("Sites uses a fixed upstream and returns only validated decisions even when
     assert.equal(response.status, 502);
     assert.equal((await response.text()).includes(key), false);
   }
+  assert.deepEqual(diagnostics, [
+    ["forecast.jev.upstream", { status: 401 }],
+    ["forecast.jev.upstream", { failure: "network-or-response" }],
+    ["forecast.jev.upstream", { failure: "network-or-response" }],
+  ]);
+  assert.equal(JSON.stringify(diagnostics).includes(key), false);
 });
 
 test("Sites cancels the upstream request on client abort", async () => {

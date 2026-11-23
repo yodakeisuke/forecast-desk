@@ -142,6 +142,8 @@ export function createSitesDecide(origin: string, securityHeaders: HeadersInit, 
         signal: deadline,
       });
       if (!response.ok) {
+        // Status only: never log the key, request, or upstream response body.
+        console.warn("forecast.jev.upstream", { status: response.status });
         void response.body?.cancel().catch(() => {});
         return reject(502, "upstream");
       }
@@ -149,6 +151,7 @@ export function createSitesDecide(origin: string, securityHeaders: HeadersInit, 
       // Report the selected model and fixed choice fields only. Upstream strings and headers stay private.
       return reply(200, { ok: true, model: jev.model, ms: Date.now() - started, answers: checkAnswers(jev, answer) });
     } catch {
+      console.warn("forecast.jev.upstream", { failure: deadline.aborted ? "timeout" : "network-or-response" });
       return deadline.aborted ? reject(504, "timeout") : reject(502, "upstream");
     }
   };
