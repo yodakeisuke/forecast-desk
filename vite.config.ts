@@ -1,10 +1,15 @@
-import { defineConfig } from "vite";
-import { hostHeaders, HOST_ORIGIN, SANDBOX_ORIGIN } from "./security.config.mjs";
+import { defineConfig, loadEnv } from "vite";
+import { hostHeaders, HOST_ORIGIN, HOST_ORIGINS, SANDBOX_ORIGIN } from "./security.config.mjs";
+import { decideRelay } from "./server/decide-relay";
 
 // "use client" directives in UI SDK are for RSC bundlers; they mean nothing here
 const quiet = (w: { code?: string; message: string }, warn: (w: any) => void) => { if (w.code !== "MODULE_LEVEL_DIRECTIVE") warn(w); };
 
-export default defineConfig(({ command }) => ({
+export default defineConfig(({ command, mode }) => {
+  // TYPESAFE_* stay on this server: no VITE_ prefix, so Vite never puts them in the bundle.
+  const env = loadEnv(mode, process.cwd(), "TYPESAFE_");
+  return {
+  plugins: [decideRelay({ key: env.TYPESAFE_API_KEY, auth: env.TYPESAFE_AUTH, model: env.TYPESAFE_MODEL, origins: HOST_ORIGINS })],
   base: process.env.FPA_ASSET_BASE || "/",
   define: { 'process.env.FPA_HOST_ORIGIN': JSON.stringify(HOST_ORIGIN), 'process.env.FPA_SANDBOX_ORIGIN': JSON.stringify(SANDBOX_ORIGIN) },
   server: { host: "localhost", port: 5173, strictPort: true, watch: { usePolling: true, interval: 300, ignored: ["**/dist/**", "**/tests/**"] }, headers: hostHeaders({ dev: command === "serve" }) },
@@ -15,4 +20,5 @@ export default defineConfig(({ command }) => ({
   // The PDF worker is loaded only on export. Discover its dependencies up front so the first
   // export cannot trigger Vite's dependency rebundle/full reload and erase the in-memory report.
   optimizeDeps: { include: ["@react-pdf/renderer", "@json-render/react-pdf"], exclude: ["@duckdb/duckdb-wasm"] },
-}));
+  };
+});

@@ -11,6 +11,10 @@ import { Spark, SvgChart } from "./SvgChart";
 import { VarianceCard } from "./VarianceCard";
 import { ScenarioControls } from "./ScenarioControls";
 import { WidgetZone } from "./WidgetCard";
+import { AskPanel, FoldRow, QuestionList } from "./Meeting";
+import { useLayout, useMeeting } from "../meeting/session";
+import { DEFAULT_ORDER, type Slot } from "../meeting/plan";
+import type { ReactNode } from "react";
 
 function useCtx() {
   const version = useApp((s) => s.version), compare = useApp((s) => s.compare), filters = useApp((s) => s.filters);
@@ -19,7 +23,10 @@ function useCtx() {
 
 function Kpis() {
   const { version, compare, filters, key } = useCtx();
-  const kp = useCube(`kpis|${key}`, () => cube.kpis(version, compare, filters));
+  const kp0 = useCube(`kpis|${key}`, () => cube.kpis(version, compare, filters));
+  // in meeting mode the question's headline number leads
+  const hero = useLayout()?.kpi;
+  const kp = kp0 && hero ? [...kp0.filter((o) => o.key === hero), ...kp0.filter((o) => o.key !== hero)].map((o) => ({ ...o, hero: o.key === hero })) : kp0;
   return (
     <section className="card dimmable kpis" id="kpis" data-target="card:kpis">
       {(kp ?? []).map((o) => {
@@ -121,22 +128,34 @@ function DriversCard() {
   );
 }
 
+const CARDS: Record<Slot, () => ReactNode> = {
+  "c-trend": () => <TrendCard key="c-trend" />, "c-bridge": () => <BridgeCard key="c-bridge" />, "c-var": () => <VarianceCard key="c-var" />,
+  "c-heat": () => <HeatCard key="c-heat" />, "c-q": () => <QuarterCard key="c-q" />, "c-drv": () => <DriversCard key="c-drv" />, "c-scenario": () => <ScenarioControls key="c-scenario" />,
+};
+
 export function Overview() {
+  const on = useMeeting((s) => s.on);
+  const layout = useLayout();
+  // one grid for every card, so meeting mode only reorders siblings (cards keep their state and animate)
+  const cards = layout
+    ? [...layout.focus.map((s) => CARDS[s]()), <FoldRow key="fold" />, ...layout.shown.map((s) => CARDS[s]())]
+    : DEFAULT_ORDER.map((s) => CARDS[s]());
   return (
-    <>
-      <div className="phead dimmable">
-        <div>
-          <h1>フォーキャスト</h1>
-          <div className="meta"><span className="badge lock"><Check />FY2026 · 10月版</span><span>2026.4 – 2027.3　/　実績は10月まで　/　億円</span></div>
+    <div className={`meet${on ? " on" : ""}`}>
+      <div className="meet-main">
+        <div className="phead dimmable">
+          <div>
+            <h1>フォーキャスト</h1>
+            <div className="meta"><span className="badge lock"><Check />FY2026 · 10月版</span><span>2026.4 – 2027.3　/　実績は10月まで　/　億円</span></div>
+          </div>
         </div>
+        {on && <AskPanel />}
+        <Controls />
+        <Kpis />
+        <div className={`grid cards${layout ? " arranged" : ""}`}>{cards}</div>
+        <WidgetZone />
       </div>
-      <Controls />
-      <Kpis />
-      <div className="grid"><TrendCard /><BridgeCard /></div>
-      <div className="grid"><VarianceCard /><HeatCard /></div>
-      <div className="grid"><QuarterCard /><DriversCard /></div>
-      <div className="grid"><ScenarioControls /></div>
-      <WidgetZone />
-    </>
+      {on && <QuestionList />}
+    </div>
   );
 }

@@ -14,6 +14,7 @@ import { ReportPage } from "./ReportPage";
 import { SecurityPage } from "./SecurityPage";
 import { SettingsPage } from "./SettingsPage";
 import { shareUrl } from "../state/preferences";
+import { MeetingToggle } from "./Meeting";
 
 function scrollToId(id: string) {
   actions.setPage("overview");
@@ -32,6 +33,7 @@ function Navigation() {
       <Button className={page === "overview" ? "active" : ""} aria-current={page === "overview" ? "page" : undefined} disabled={playing} onClick={() => scrollToId("kpis")}>分析</Button>
       <Button className={page === "report" ? "active" : ""} aria-current={page === "report" ? "page" : undefined} disabled={playing} onClick={() => actions.setPage("report")}>レポート</Button>
     </nav>
+    <MeetingToggle />
     <AgentChip />
     <details className="toolbar-menu main-menu">
       <summary aria-label="その他のメニュー"><Ic.more /></summary>
