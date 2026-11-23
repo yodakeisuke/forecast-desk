@@ -37,7 +37,10 @@ test("real Vite and Sites Worker builds keep a build-time key out of all staged 
   check(source);
   check(staged);
   assert.deepEqual(JSON.parse(readFileSync(manifest, "utf8")), { project_id: "test-site", r2: null, d1: "DECIDE_QUOTA" });
-  assert.ok(readFileSync(join(staged, ".openai", "drizzle", "0000_forecast_decide_quota.sql")).length);
+  const migrations = join(staged, ".openai", "drizzle");
+  const journal = JSON.parse(readFileSync(join(migrations, "meta", "_journal.json"), "utf8"));
+  assert.equal(journal.entries[0].tag, "0000_forecast_decide_quota");
+  assert.ok(readFileSync(join(migrations, `${journal.entries[0].tag}.sql`)).length);
   const module = await import(pathToFileURL(join(staged, "server", "index.js")).href);
   const worker = module.default;
   assert.equal((await worker.fetch(new Request(origin), {})).status, 200);
