@@ -46,7 +46,7 @@ try {
     const worker = resolve('worker/security-worker.mjs');
     const relay = resolve('worker/sites-decide.ts');
     const output = await build({
-      configFile: false, envFile: false, publicDir: false, logLevel: 'warn',
+      configFile: false, envDir: false, publicDir: false, logLevel: 'warn',
       plugins: [{
         name: 'forecast-sites-entry',
         resolveId(id) { if (id === entry) return '\0' + entry; },
@@ -62,7 +62,7 @@ export default createWorker(config, createSitesDecide(${JSON.stringify(HOST_ORIG
         write: false, target: 'es2022', modulePreload: false,
         rollupOptions: {
           input: entry, preserveEntrySignatures: 'strict',
-          output: { format: 'es', inlineDynamicImports: true },
+          output: { format: 'es', codeSplitting: false },
         },
       },
     });

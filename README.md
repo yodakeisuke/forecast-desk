@@ -56,7 +56,7 @@ Chrome では起動時に `Origin trial controlled feature not enabled: 'tools'`
 
 ### APIキーの扱い
 
-キーはブラウザに一切渡しません。`npm run dev` / `npm run preview` のローカルサーバーだけが持ち、`/api/decide` でJevへの決まった形のリクエストを自分で組み立てて送ります。
+ローカルでは `npm run dev` / `npm run preview` のサーバーがキーを管理し、`/api/decide` で Jev への決まった形のリクエストを組み立てて送ります。
 
 ```bash
 cp .env.example .env     # .env はgit管理外
@@ -122,7 +122,7 @@ tests/        Playwright（security / e2e）
 
 ## Codex Sitesへの公開
 
-アプリとGenUIを別々のSiteに配信します。アプリの計算・データ・ツール実行はすべてブラウザ内です。配信WorkerはHTMLと静的アセットにセキュリティヘッダーを付けます。アプリ側のWorkerだけが会議モードの `/api/decide` を提供します。Sitesの静的配信では`_headers`が反映されなかったため、この構成にしています。
+アプリとGenUIを別々のSiteに配信します。集計とツール実行はブラウザ内です。配信WorkerはHTMLと静的アセットにセキュリティヘッダーを付けます。アプリ側のWorkerが会議モードの `/api/decide` を提供します。Sitesの静的配信では`_headers`が反映されなかったため、この構成にしています。
 
 ```bash
 FPA_ASSET_BASE=/guarded/ \
