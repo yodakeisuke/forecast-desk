@@ -74,7 +74,8 @@ async function decide(question: string, screen: Screen): Promise<{ plan: Plan; e
         return { plan: planFromJev(body.answers, question, screen), engine: "jev", model: body.model ?? "jev", notice: null };
       }
       // no relay (static hosting) or no key on this server: stay in かんたんモード for the session
-      if (res.status === 404 || UNAVAILABLE.has(body?.reason ?? "")) set({ jev: "unavailable" });
+      // (the published site's Worker answers 405 to any POST, the dev server 404 without the plugin)
+      if (res.status === 404 || res.status === 405 || UNAVAILABLE.has(body?.reason ?? "")) set({ jev: "unavailable" });
       else return { plan: localPlan(question, screen), engine: "local", model: "かんたんモード", notice: "Jevに届かなかったため、かんたんモードで答えました" };
     } catch {
       return { plan: localPlan(question, screen), engine: "local", model: "かんたんモード", notice: "Jevに届かなかったため、かんたんモードで答えました" };

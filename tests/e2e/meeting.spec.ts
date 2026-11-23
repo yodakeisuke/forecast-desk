@@ -104,6 +104,20 @@ test("会議モード: 「前月並み」は問いの範囲の成約率、戻る
   expect(v["/scenario/winRate"]).toBe(want);
 });
 
+test("会議モード: 公開サイト（中継なし）ではかんたんモードに切り替え、毎回は問い合わせない", async ({ page }) => {
+  let hits = 0;
+  // the published site's Worker answers any POST with 405
+  await page.route("**/api/decide", (r) => { hits++; return r.fulfill({ status: 405, contentType: "text/plain", body: "Method not allowed" }); });
+  await boot(page, "/");
+  await page.getByRole("button", { name: "会議モード" }).click();
+  await ask(page, "欧州だけだと、前月版比でどう？");
+  await expect(page.locator('[data-target="filter:region"]')).toContainText("欧州");
+  await expect(page.locator(".ask-notice")).toHaveCount(0);
+  await ask(page, "北米だと？");
+  expect(hits).toBe(1);
+  await expect(page.locator(".chip-fast")).toContainText("かんたんモード");
+});
+
 test("鍵はブラウザに渡らない（中継はこのサーバーだけ）", async ({ page, request }) => {
   await boot(page, "/");
   const html = await (await request.get("/")).text();
