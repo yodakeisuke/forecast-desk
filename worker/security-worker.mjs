@@ -1,6 +1,6 @@
-// Only static assets: the Worker enforces response headers, never handles analytics/data/tool calls.
+// Serve guarded assets and optionally the host app’s fixed decision endpoint.
 // HTML deliberately does not exist in ASSETS, so an asset-first router cannot bypass its CSP.
-export function createWorker(config) {
+export function createWorker(config, decide) {
   const paths = new Map(Object.entries(config.assets));
   const response = (body, status, extra = {}, method = 'GET') => new Response(method === 'HEAD' ? null : body, {
     status, headers: { ...config.headers, ...extra }, encodeBody: 'manual',
@@ -8,6 +8,7 @@ export function createWorker(config) {
   return {
     async fetch(request, env) {
       const url = new URL(request.url);
+      if (decide && url.pathname === "/api/decide") return decide(request, env);
       if (!['GET', 'HEAD'].includes(request.method)) return response('Method not allowed', 405, { Allow: 'GET, HEAD' });
       if (config.pages.includes(url.pathname)) return response(config.html, 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' }, request.method);
       const asset = paths.get(url.pathname);
