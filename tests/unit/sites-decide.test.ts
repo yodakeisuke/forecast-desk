@@ -83,7 +83,7 @@ test("Sites uses a fixed upstream and returns only validated decisions even when
   const handler = createSitesDecide(origin, {}, async (url, init) => {
     assert.equal(url, "https://api.typesafe.ai/v1/systemone");
     assert.equal(init?.method, "POST");
-    assert.equal(init?.redirect, "error");
+    assert.equal(init?.redirect, "manual");
     assert.equal(new Headers(init?.headers).get("Authorization") === `Bearer ${key}`, true);
     assert.notEqual(init?.signal, undefined);
     const body = JSON.parse(String(init?.body));
@@ -123,6 +123,28 @@ test("Sites uses a fixed upstream and returns only validated decisions even when
     ["forecast.jev.upstream", { failure: "network-or-response" }],
   ]);
   assert.equal(JSON.stringify(diagnostics).includes(key), false);
+});
+
+test("Sites refuses upstream redirects without forwarding credentials or Location", async (t) => {
+  t.mock.method(console, "warn", () => {});
+  for (const status of [301, 302, 303, 307, 308]) {
+    let calls = 0;
+    let canceled = false;
+    const handler = createSitesDecide(origin, {}, async (url, init) => {
+      calls++;
+      assert.equal(url, "https://api.typesafe.ai/v1/systemone");
+      assert.equal(init?.redirect, "manual");
+      return new Response(new ReadableStream({ cancel() { canceled = true; } }), {
+        status, headers: { Location: `https://other.example/${key}` },
+      });
+    });
+    const response = await handler(request(), { TYPESAFE_API_KEY: key, DECIDE_QUOTA: stubDb(true) });
+    assert.equal(response.status, 502);
+    assert.equal(response.headers.get("Location"), null);
+    assert.equal((await response.text()).includes(key), false);
+    assert.equal(calls, 1);
+    assert.equal(canceled, true);
+  }
 });
 
 test("Sites cancels the upstream request on client abort", async () => {

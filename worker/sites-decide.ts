@@ -138,7 +138,8 @@ export function createSitesDecide(origin: string, securityHeaders: HeadersInit, 
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify(jev),
-        redirect: "error",
+        // Workers does not implement "error". Return 3xx without following, then reject below.
+        redirect: "manual",
         signal: deadline,
       });
       if (!response.ok) {
